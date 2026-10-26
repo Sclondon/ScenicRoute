@@ -41,16 +41,18 @@ const GROUND_FAR := -420.0
 
 ## Where you stand: on the path at the wood's edge, by the pumpkin patch, looking out over the fence to
 ## the pond and the hills. `look` is (yaw, pitch) in degrees, yaw 0 down the path (-Z), positive to the left.
-const VIEW := {"z": -27.0, "side": 0.6, "eye": 1.6, "look": Vector2(38.0, -4.0)}
+const VIEW := {"z": -27.0, "side": 0.6, "eye": 1.6, "look": Vector2(16.0, -3.0)}
 ## Within this of where you stand, things are built in full (trees with roots, 3D bushes).
 const NEAR := 22.0
 const LOG_Z := -15.0
 const PATCH_Z := Vector2(-26.0, -40.0)
+## The middle of the gap in the wood out to the valley, along the path.
+const GAP_Z := -42.0
 ## The pond: its middle (x, z) and its half-widths.
 const POND := Vector2(-24.0, -48.0)
 const POND_SIZE := Vector2(8.5, 5.5)
 ## The stream, from where it rises down to the pond.
-const STREAM: Array[Vector2] = [Vector2(-9, 14), Vector2(-13, 4), Vector2(-17, -6), Vector2(-21, -16),
+const STREAM: Array[Vector2] = [Vector2(-17, -16), Vector2(-20, -21),
 	Vector2(-23, -27), Vector2(-24.5, -35), Vector2(-24, -39.5), Vector2(-24, -44)]
 ## The corn: a field on the rise past the pond (x, z, width, depth).
 const CORN_FIELD := Rect2(-74.0, -96.0, 26.0, 36.0)
@@ -75,9 +77,17 @@ static func off_path(x: float, z: float) -> float:
 	return absf(x - path_x(z))
 
 
-## How far out of the wood a point is, 0..1: the -X side opens out past the trees along the path.
+## The one way out of the wood: on the -X side by the patch the trees give out, and the opening widens
+## as it goes out over the valley. 0..1 (1 inside it), from where across the path a point is.
+static func gap_at(x: float, z: float) -> float:
+	var lo := maxf(path_x(z) - x, 0.0)
+	var half := 15.0 + lo * 0.7
+	return 1.0 - smoothstep(half - 9.0, half, absf(z - GAP_Z))
+
+
+## How far out of the wood a point is, 0..1: only in the gap, past the trees along the path.
 static func open_at(x: float, z: float) -> float:
-	return smoothstep(5.0, 13.0, path_x(z) - x)
+	return smoothstep(5.0, 13.0, path_x(z) - x) * gap_at(x, z)
 
 
 static func view_position() -> Vector3:
@@ -101,7 +111,7 @@ static func _raw_height(x: float, z: float) -> float:
 	# the land falls away from the wood's edge into a broad valley, where the stream and pond lie:
 	# steepest at the top, so from the edge you see down into it
 	var lo := path_x(z) - x
-	h -= (2.0 * smoothstep(3.0, 13.0, lo) + 6.5 * (1.0 - exp(-maxf(lo - 9.0, 0.0) / 6.0))) * (1.0 - smoothstep(50.0, 120.0, lo))
+	h -= (2.0 * smoothstep(3.0, 13.0, lo) + 6.5 * (1.0 - exp(-maxf(lo - 9.0, 0.0) / 6.0))) * (1.0 - smoothstep(50.0, 120.0, lo)) * gap_at(x, z)
 	if open <= 0.0:
 		return h + wood
 	# rolling hills, growing as they go out, up to a far ridge
@@ -222,8 +232,8 @@ func _environment() -> void:
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	env.fog_light_color = FOG
-	env.fog_density = 0.0065
-	env.fog_sun_scatter = 0.35
+	env.fog_density = 0.011
+	env.fog_sun_scatter = 0.6
 	env.fog_sky_affect = 0.45
 	env.fog_height = -9.0
 	env.fog_height_density = 0.03
@@ -426,7 +436,9 @@ func _variant(kind: String, seed: int, shape_override := {}) -> Dictionary:
 	shape.merge(shape_override, true)
 	shape.lite = true
 	var lite := builder.build(r, shape)
-	return {"kind": kind, "full": full, "lite": lite, "crowns": crowns, "near": [], "far": [], "bare": shape.bare}
+	# its leaves: oaks lobed, aspens small and round, the rest pointed like beech or maple
+	var leaf: int = {"oak": 1, "aspen": 3}.get(kind, 0 if seed % 3 != 0 else 2)
+	return {"kind": kind, "full": full, "lite": lite, "crowns": crowns, "near": [], "far": [], "bare": shape.bare, "leaf": leaf}
 
 
 func _trees_and_leaves() -> void:
@@ -457,8 +469,8 @@ func _trees_and_leaves() -> void:
 			var open := open_at(tx, tz)
 			keep *= 1.0 - open * 0.97
 			var far := Vector2(tx - view.x, tz - view.z).length()
-			if far > 70.0:
-				keep *= 0.75
+			if far > 55.0:
+				keep *= 0.55
 			if off < 2.4 or rng.randf() > keep or not _clear_of_props(tx, tz, 1.0):
 				continue
 			# keep the view out over the valley open (the old oaks frame it)
@@ -572,8 +584,8 @@ func _crown(variant: Dictionary, tr: Transform3D, off: float) -> void:
 		for k in cards:
 			var p := centre + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.6, 0.8), rng.randf_range(-1, 1)) * size * 0.8
 			var lit := clampf(0.25 + 0.6 * (c.y / top) + (p.y - centre.y) / size * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 1.0)
-			var h := clampf(hue + rng.randf_range(-0.18, 0.18), 0.0, 1.0)
-			_foliage.append([p, Color(size * rng.randf_range(1.3, 1.9), h, lit, rng.randf())])
+			var h := clampf(hue + rng.randf_range(-0.18, 0.18), 0.0, 0.99)
+			_foliage.append([p, Color(size * rng.randf_range(1.3, 1.9), float(variant.leaf) + h, lit, rng.randf())])
 
 
 func _foliage_mesh(cards: Array, material: ShaderMaterial, quad := 1.0) -> MultiMeshInstance3D:
@@ -855,7 +867,7 @@ func _glow() -> void:
 	quad.size = Vector2(1, 1)
 	var m := MeshInstance3D.new()
 	m.mesh = quad
-	m.material_override = _mat(GLOW, {"strength": 0.4})
+	m.material_override = _mat(GLOW, {"strength": 0.65})
 	m.position = Vector3(path_x(z) + 6.0, 9.0, z)
 	m.scale = Vector3(70, 70, 1)
 	add_child(m)

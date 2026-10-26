@@ -1,6 +1,6 @@
 extends Node
 ## The sound of a wood in autumn, all made at start-up (no audio files): wind coming and going in the
-## tops, dry leaves hissing when it gusts, small birds now and then, a woodpecker far off.
+## tops, dry leaves hissing when it gusts, a woodpecker far off (the birds are the jays in the oaks: GameCommon's).
 ##
 ## The beds are baked once with their gusts in them and loop seamlessly, and are left alone while they
 ## play: changing a player's volume every frame stutters in the web build.
@@ -13,7 +13,6 @@ var rustle: AudioStreamPlayer
 var players: Array[AudioStreamPlayer] = []
 var sounds := {}
 var _next := 0
-var _bird_in := 3.0
 var _pecker_in := 25.0
 
 
@@ -21,8 +20,6 @@ func _ready() -> void:
 	var gust := _gust()
 	wind = _bed(_wind_loop(gust), -6.0)
 	rustle = _bed(_rustle_loop(gust), -14.0)
-	for i in 3:
-		sounds["bird%d" % i] = _birdsong(i)
 	sounds["peck"] = _pecks()
 	for i in 3:
 		var p := AudioStreamPlayer.new()
@@ -48,10 +45,6 @@ func play(sound: String, volume_db := 0.0, pitch := 1.0) -> void:
 func _process(delta: float) -> void:
 	if not wind.playing:
 		return
-	_bird_in -= delta
-	if _bird_in <= 0.0:
-		_bird_in = randf_range(6.0, 16.0)
-		play("bird%d" % randi_range(0, 2), randf_range(-22.0, -15.0), randf_range(0.9, 1.15))
 	_pecker_in -= delta
 	if _pecker_in <= 0.0:
 		_pecker_in = randf_range(30.0, 70.0)
@@ -125,26 +118,6 @@ func _rustle_loop(gust: PackedFloat32Array) -> AudioStreamWAV:
 		var g := gust[i % gust.size()]
 		s[i] = lp * g * g * (0.5 + 0.5 * flutter)
 	return _loop(_normal(s, 0.6))
-
-
-# A small bird: a few quick chirps sliding up or down
-func _birdsong(kind: int) -> AudioStreamWAV:
-	var notes: Array = [[3200.0, 4200.0], [4100.0, 2900.0], [3600.0, 3900.0]][kind]
-	var count: int = [3, 2, 5][kind]
-	var s := PackedFloat32Array()
-	var phase := 0.0
-	for c in count:
-		var dur := 0.09 if kind != 2 else 0.05
-		var n := int(dur * RATE)
-		for i in n:
-			var u := float(i) / n
-			var f := lerpf(notes[0], notes[1], u) * (1.0 + 0.04 * sin(u * 40.0))
-			phase += TAU * f / RATE
-			var env := sin(u * PI)
-			s.append(sin(phase) * env * env * 0.5)
-		for i in int(0.06 * RATE):
-			s.append(0.0)
-	return _wav(s)
 
 
 # A woodpecker far off: a quick drumroll that slows

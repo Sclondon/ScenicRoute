@@ -1,7 +1,8 @@
 // A clump of autumn leaves as a card that always faces the camera, painted in dabs: each cell of a
-// Voronoi pattern is one leaf with its own shade, and the clump's outline is ragged with leaf tips.
+// Voronoi pattern is one leaf of the tree's own shape and shade, the outline ragged with strays, dark
+// twigs reaching out through the gaps.
 // Lit by hand, not by the engine: lighter on the side to the sun, glowing when the sun is behind it.
-// One MultiMesh of these is a whole wood's leaves. INSTANCE_CUSTOM: x size, y hue (0 gold .. 1 rust),
+// INSTANCE_CUSTOM: x size, y the leaf shape (whole part: 0 beech, 1 oak, 2 maple, 3 aspen) and hue (fraction: 0 gold .. rust),
 // z how lit it is (0 deep inside the crown .. 1 out in the sun), w a seed.
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
@@ -42,6 +43,8 @@ float vnoise(vec2 p) {
 void vertex() {
 	custom = INSTANCE_CUSTOM;
 	float size = custom.x;
+	// a clump right by the camera would fill the view with one leaf: it shrinks away
+	size *= smoothstep(1.2, 3.5, distance(MODEL_MATRIX[3].xyz, CAMERA_POSITION_WORLD));
 	vec3 centre = MODEL_MATRIX[3].xyz;
 	float t = TIME * 0.9 + custom.w * 40.0;
 	vec3 wind = vec3(sin(t) + 0.4 * sin(t * 2.3), 0.15 * sin(t * 1.7), 0.5 * cos(t * 0.8)) * 0.06 * size * sway;
@@ -60,6 +63,8 @@ void vertex() {
 		v = vec2(v.x * cos(spin) - v.y * sin(spin), v.x * sin(spin) + v.y * cos(spin));
 	}
 	world_pos = centre + (right * v.x + up * v.y) * size;
+	// each card a step nearer or further than its neighbours, so where they cross they do not flicker
+	world_pos += normalize(CAMERA_POSITION_WORLD - centre) * (custom.w - 0.5) * size * 0.8;
 	// instances carry no rotation or scale, so world to model is only the offset
 	VERTEX = world_pos - MODEL_MATRIX[3].xyz;
 }
@@ -81,10 +86,13 @@ void fragment() {
 		vec2 p = (uv - 0.5) * 2.0;
 		float r = length(p);
 		float ang = atan(p.y, p.x);
-		float edge = 0.72 + 0.22 * vnoise(vec2(ang * 1.6 + seed, seed)) + 0.06 * sin(ang * 13.0 + seed);
-		// one leaf per cell: a pointed oval at a slant of its own; where leaves overlap, the higher
-		// numbered one is in front. Between them inside the clump is its dark middle.
-		vec2 g = uv * leaf_scale + seed;
+		float edge = 0.7 + 0.24 * vnoise(vec2(ang * 1.6 + seed, seed)) + 0.06 * sin(ang * 13.0 + seed);
+		// the tree's own leaf: 0 pointed (beech), 1 lobed (oak), 2 pointed lobes (maple), 3 small and round (aspen)
+		float shape = floor(custom.y);
+		float scale = leaf_scale * (shape < 0.5 ? 1.0 : (shape < 1.5 ? 0.85 : (shape < 2.5 ? 0.72 : 1.35)));
+		// one leaf per cell, at a slant of its own; where leaves overlap, the higher numbered one is in front.
+		// Leaves out past the clump's edge are fewer, so the outline is ragged with strays.
+		vec2 g = uv * scale + seed;
 		vec2 gi = floor(g);
 		vec2 gf = fract(g);
 		float front = -1.0;
@@ -96,23 +104,48 @@ void fragment() {
 				vec2 d = gf - (o + h);
 				float a = h.x * 6.283 + h.y * 3.0;
 				vec2 q = vec2(d.x * cos(a) + d.y * sin(a), -d.x * sin(a) + d.y * cos(a));
-				// pointed at both ends: narrower towards the tips
-				float len = 0.62;
-				float t = q.x / len;
-				float half_w = 0.27 * (1.0 - t * t) * (1.0 + 0.3 * t);
-				vec2 leaf_uv = (gi + o + h - seed) / leaf_scale;
-				bool inside_clump = length((leaf_uv - 0.5) * 2.0) < edge;
-				if (abs(t) < 1.0 && abs(q.y) < half_w && inside_clump) {
+				bool in_leaf;
+				float t;
+				if (shape < 0.5) {
+					t = q.x / 0.62;
+					in_leaf = abs(t) < 1.0 && abs(q.y) < 0.27 * (1.0 - t * t) * (1.0 + 0.3 * t);
+				} else if (shape < 1.5) {
+					t = q.x / 0.66;
+					float lobes = 0.74 + 0.26 * cos(t * 9.42);
+					in_leaf = abs(t) < 1.0 && abs(q.y) < 0.3 * sqrt(max(1.0 - t * t, 0.0)) * lobes * (0.7 + 0.3 * (t + 1.0) * 0.5);
+				} else if (shape < 2.5) {
+					t = length(q) / 0.5;
+					float pa = atan(q.y, q.x);
+					in_leaf = t < 0.6 + 0.4 * pow(abs(cos(pa * 2.5)), 1.6) && q.x > -0.35;
+				} else {
+					t = q.x / 0.4;
+					in_leaf = length(q * vec2(1.0, 1.15)) < 0.36 - 0.06 * max(t, 0.0);
+				}
+				vec2 leaf_uv = (gi + o + h - seed) / scale;
+				float lr = length((leaf_uv - 0.5) * 2.0);
+				bool kept = lr < edge || (lr < edge + 0.22 && hash2(gi + o + 5.0).x < 0.3);
+				if (in_leaf && kept) {
 					float id = hash2(gi + o + 17.0).x;
 					if (id > front) {
 						front = id;
-						along = t;
+						along = clamp(t, -1.0, 1.0);
 					}
 				}
 			}
 		}
-		bool in_middle = r < edge - 0.18;
-		alpha = (front >= 0.0 || in_middle) ? 1.0 : 0.0;
+		// twigs out through the clump, dark, seen in its gaps
+		float twig = 0.0;
+		for (int k = 0; k < 5; k++) {
+			float ta = custom.w * 40.0 + float(k) * 1.37 + float(k * k) * 0.5;
+			vec2 dir = vec2(cos(ta), sin(ta));
+			float s = clamp(dot(p, dir), 0.0, 0.95);
+			vec2 bend = vec2(-dir.y, dir.x) * sin(s * 4.0 + float(k)) * 0.06;
+			float dist = length(p - dir * s - bend);
+			twig = max(twig, step(dist, 0.03 * (1.0 - s * 0.7)) * step(0.02, dot(p, dir)));
+		}
+		// the dark inside of the clump, with holes in it
+		bool in_middle = r < edge - 0.2 && vnoise(uv * 7.0 + seed) > 0.3;
+		alpha = (front >= 0.0 || in_middle || twig > 0.5) ? 1.0 : 0.0;
 		// shading across the clump: down-and-away from the sun is the dark inside
 		float side = dot(p, normalize(sun_on_card + vec2(0.0, 0.6))) * 0.5 + 0.5;
 		tone = lit * 0.6 + side * 0.4 - r * 0.3;
@@ -146,7 +179,7 @@ void fragment() {
 	if (alpha < 0.5) {
 		discard;
 	}
-	float hue = custom.y;
+	float hue = fract(custom.y);
 	vec3 base = hue < 0.5 ? mix(gold, orange, hue * 2.0) : mix(orange, rust, (hue - 0.5) * 2.0);
 	vec3 dark = mix(shade, base * 0.4, 0.3);
 	vec3 col = mix(dark, base, smoothstep(0.1, 0.6, tone));

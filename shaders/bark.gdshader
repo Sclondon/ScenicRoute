@@ -99,13 +99,13 @@ vec4 bark_at(float around, float h, float outness) {
 		vec3 pale = mix(vec3(0.82, 0.8, 0.7), vec3(0.72, 0.74, 0.62), vnoise(q * vec2(3.0, 0.8)));
 		// faint horizontal lenticels
 		float dash = step(0.82, vnoise(vec2(around * 7.0, h * 40.0))) * step(0.4, vnoise(q * 4.0));
-		col = mix(pale, pale * 0.55, dash * 0.6);
+		col = mix(pale, pale * 0.7, dash * 0.4);
 		float e = eyes(q);
 		col = mix(col, bark_dark * 1.4, e);
 		// the foot: black, cracked, in ragged bands that climb a little way
 		float foot = smoothstep(1.6, 0.2, h + (vnoise(vec2(around * 3.0, 0.0)) - 0.5) * 1.2);
 		vec2 pl = plates(vec2(around / 0.08, h / 0.2));
-		vec3 rough = mix(bark_dark, bark * 0.7, smoothstep(0.05, 0.3, pl.x));
+		vec3 rough = mix(bark_dark * 1.6, bark * 0.7, smoothstep(0.0, 0.35, pl.x));
 		col = mix(col, rough, foot);
 		// and a few black bands higher up, partly round
 		float band = step(0.72, vnoise(vec2(around * 2.0, h * 1.6))) * step(0.5, vnoise(vec2(around * 6.0 + 3.0, h * 0.9)));
@@ -115,9 +115,10 @@ vec4 bark_at(float around, float h, float outness) {
 		// smoother bark out on the twigs
 		float size = plate * mix(1.0, 0.45, outness);
 		vec2 pl = plates(vec2(around / size, h / (size * 3.2)));
-		float edge = smoothstep(0.02, 0.22, pl.x);
-		vec3 face = mix(bark, bark_light, pl.y * 0.6 + vnoise(vec2(around * 30.0, h * 4.0)) * 0.3);
-		col = mix(bark_dark, face, edge);
+		float edge = smoothstep(0.0, 0.3, pl.x);
+		vec3 face = mix(bark, bark_light, pl.y * 0.3 + vnoise(vec2(around * 8.0, h * 1.5)) * 0.15);
+		// the furrows only a little darker than the plates: a soft pattern, not a busy one
+		col = mix(mix(bark_dark, bark, 0.5), face, edge);
 		groove = 1.0 - edge;
 	}
 	return vec4(col, groove);
@@ -144,6 +145,6 @@ void fragment() {
 	float rim = pow(1.0 - clamp(dot(n, to_cam), 0.0, 1.0), 3.0) * clamp(dot(n, sun) + 0.5, 0.0, 1.0);
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 2.5, h));
 	vec3 lit = col * (0.42 + 0.75 * wrap * sun_color) * foot;
-	lit += sun_color * rim * 0.45 * (1.0 - bk.a * 0.8);
+	lit += sun_color * rim * 0.35 * (1.0 - bk.a * 0.5);
 	ALBEDO = lit;
 }
