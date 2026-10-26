@@ -8,22 +8,15 @@ extends Node3D
 ## The look comes from painting, not lighting: almost every material lights itself by hand off
 ## `SUN_DIR` (the engine's light is there for the fog's glow and the grass), and warm fog does the depth.
 
-const TreeBuilder := preload("res://scripts/amberwood/tree_builder.gd")
-const BushBuilder := preload("res://scripts/amberwood/bush_builder.gd")
 const CornBuilder := preload("res://scripts/amberwood/corn_builder.gd")
-const LeafAtlas := preload("res://scripts/amberwood/leaf_atlas.gd")
 const Wildlife := preload("res://scripts/amberwood/wildlife.gd")
-const FOLIAGE := preload("res://shaders/foliage.gdshader")
-const BARK := preload("res://shaders/bark.gdshader")
+const FOLIAGE := Woodland.FOLIAGE
+const BARK := Woodland.BARK
 const GROUND := preload("res://shaders/ground.gdshader")
-const LEAF := preload("res://shaders/leaf.gdshader")
-const LEAF3D := preload("res://shaders/leaf3d.gdshader")
-const SHAFT := preload("res://shaders/shaft.gdshader")
+const LEAF := Woodland.LEAF
 const GLOW := preload("res://shaders/glow.gdshader")
 const PROP := preload("res://shaders/prop.gdshader")
-const WATER := preload("res://shaders/water.gdshader")
 const CORN := preload("res://shaders/corn.gdshader")
-const SKY := preload("res://shaders/sky.gdshader")
 
 ## Towards the sun: low, ahead down the path and a little to the right.
 const SUN_DIR := Vector3(0.18, 0.3, -1.0)
@@ -201,14 +194,7 @@ func _ready() -> void:
 
 
 func _mat(shader: Shader, params := {}) -> ShaderMaterial:
-	var m := ShaderMaterial.new()
-	m.shader = shader
-	m.set_shader_parameter("sun_dir", SUN_DIR.normalized())
-	m.set_shader_parameter("sun_color", Vector3(SUN_COLOR.r, SUN_COLOR.g, SUN_COLOR.b))
-	if shader in [FOLIAGE, LEAF, LEAF3D]:
-		m.set_shader_parameter("leaf_atlas", LeafAtlas.texture())
-	for k in params:
-		m.set_shader_parameter(k, params[k])
+	var m := Woodland.material(shader, SUN_DIR, SUN_COLOR, params)
 	materials.append(m)
 	return m
 
@@ -216,11 +202,7 @@ func _mat(shader: Shader, params := {}) -> ShaderMaterial:
 func _environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
-	var sky_mat := ShaderMaterial.new()
-	sky_mat.shader = SKY
-	sky_mat.set_shader_parameter("sun_dir", SUN_DIR.normalized())
-	env.sky = Sky.new()
-	env.sky.sky_material = sky_mat
+	env.sky = Woodland.sky(SUN_DIR)
 	env.background_color = Color(0.95, 0.84, 0.6)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.55, 0.45, 0.32)
@@ -315,28 +297,8 @@ func _ground() -> void:
 
 
 func _water() -> void:
-	# the pond: a disc a little bigger than its hollow, so its edge is under the bank
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var y := pond_level()
-	var n := 40
-	for i in n:
-		var a0 := TAU * i / n
-		var a1 := TAU * (i + 1) / n
-		var c := Vector3(POND.x, y, POND.y)
-		var p0 := c + Vector3(cos(a0) * POND_SIZE.x, 0, sin(a0) * POND_SIZE.y) * 1.1
-		var p1 := c + Vector3(cos(a1) * POND_SIZE.x, 0, sin(a1) * POND_SIZE.y) * 1.1
-		for p in [c, p1, p0]:
-			st.set_normal(Vector3.UP)
-			st.set_uv(Vector2(p.x, p.z))
-			st.add_vertex(p)
-	var pond := MeshInstance3D.new()
-	pond.mesh = st.commit()
-	pond.material_override = _mat(WATER, {"flow": 0.0, "pond": POND, "pond_size": POND_SIZE})
-	add_child(pond)
-	# the stream: a ribbon down its channel, UV.y metres along it
-	st = SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	Woodland.add_pond(self, POND, POND_SIZE, pond_level(), SUN_DIR, SUN_COLOR)
+	# the stream: down its channel, a point every metre or so
 	var pts: Array[Vector3] = []
 	var steps := 90
 	var total := 0.0
@@ -354,22 +316,7 @@ func _water() -> void:
 				break
 			run += seg
 		pts.append(Vector3(p2.x, stream_bed(along) - 0.08, p2.y))
-	var half := 0.85
-	for k in steps:
-		var a := pts[k]
-		var b := pts[k + 1]
-		var side := (b - a).cross(Vector3.UP).normalized() * half
-		var va := total * k / steps
-		var vb := total * (k + 1) / steps
-		var quad := [[a - side, Vector2(0, va)], [a + side, Vector2(1, va)], [b - side, Vector2(0, vb)], [b + side, Vector2(1, vb)]]
-		for q in [quad[0], quad[2], quad[1], quad[1], quad[2], quad[3]]:
-			st.set_normal(Vector3.UP)
-			st.set_uv(q[1])
-			st.add_vertex(q[0])
-	var stream := MeshInstance3D.new()
-	stream.mesh = st.commit()
-	stream.material_override = _mat(WATER, {"flow": 1.0})
-	add_child(stream)
+	Woodland.add_stream(self, pts, 0.85, SUN_DIR, SUN_COLOR)
 
 
 func _clear_of_props(x: float, z: float, r: float) -> bool:
@@ -392,49 +339,8 @@ func _clear_of_props(x: float, z: float, r: float) -> bool:
 
 # --- trees ---
 
-## The kinds of tree: how often each comes, and its shape's ranges.
-const KINDS := {
-	"oak": {"height": [8.5, 12.5], "radius": [0.55, 0.95], "reach": [5.5, 8.0], "lean": [0.0, 0.18],
-		"twist": [0.04, 0.12], "flute": [0.1, 0.16], "flare": [0.7, 1.1], "roots": [5, 8], "branches": [5, 7], "curl": [0.8, 1.3]},
-	"tall": {"height": [12.0, 17.0], "radius": [0.24, 0.42], "reach": [3.5, 5.0], "lean": [0.0, 0.1],
-		"twist": [0.0, 0.04], "flute": [0.03, 0.06], "flare": [0.4, 0.6], "roots": [2, 4], "branches": [4, 7], "curl": [0.2, 0.5]},
-	"leaner": {"height": [10.0, 14.0], "radius": [0.3, 0.5], "reach": [4.0, 6.0], "lean": [0.3, 0.6],
-		"twist": [0.02, 0.08], "flute": [0.05, 0.1], "flare": [0.6, 0.9], "roots": [3, 5], "branches": [4, 6], "curl": [0.5, 0.9]},
-	"aspen": {"height": [10.0, 15.0], "radius": [0.14, 0.26], "reach": [2.5, 3.8], "lean": [0.0, 0.12],
-		"twist": [0.0, 0.0], "flute": [0.0, 0.0], "flare": [0.25, 0.4], "roots": [0, 2], "branches": [4, 6], "curl": [0.1, 0.3], "tip": 0.25},
-	"snag": {"height": [6.0, 10.0], "radius": [0.25, 0.45], "reach": [2.5, 4.0], "lean": [0.0, 0.25],
-		"twist": [0.03, 0.1], "flute": [0.08, 0.12], "flare": [0.6, 0.9], "roots": [3, 5], "branches": [2, 4], "curl": [0.8, 1.2], "bare": true},
-}
+## How many shapes of each kind of tree (Woodland.KINDS) the wood is made of.
 const VARIANTS := {"oak": 4, "tall": 4, "leaner": 3, "aspen": 4, "snag": 2}
-
-
-func _shape(kind: String, r: RandomNumberGenerator, lite: bool) -> Dictionary:
-	var k: Dictionary = KINDS[kind]
-	var out := {"lite": lite, "bare": k.get("bare", false), "tip": k.get("tip", 0.18)}
-	for key in ["height", "radius", "reach", "lean", "twist", "flute", "flare", "curl"]:
-		out[key] = r.randf_range(k[key][0], k[key][1])
-	out["roots"] = r.randi_range(k.roots[0], k.roots[1])
-	out["branches"] = r.randi_range(k.branches[0], k.branches[1])
-	return out
-
-
-## A tree made twice from one seed: in full near, plainer far; the leaves are where both put them.
-func _variant(kind: String, seed: int, shape_override := {}) -> Dictionary:
-	var builder := TreeBuilder.new()
-	var r := RandomNumberGenerator.new()
-	r.seed = seed
-	var shape := _shape(kind, r, false)
-	shape.merge(shape_override, true)
-	var full := builder.build(r, shape)
-	var crowns := builder.crowns.duplicate()
-	r.seed = seed
-	shape = _shape(kind, r, true)
-	shape.merge(shape_override, true)
-	shape.lite = true
-	var lite := builder.build(r, shape)
-	# its leaves (leaf_atlas.gd): oaks' and aspens' own, the rest beech, maple or birch
-	var leaf: int = {"oak": 1, "aspen": 3}.get(kind, [0, 2, 4][seed % 3])
-	return {"kind": kind, "full": full, "lite": lite, "crowns": crowns, "near": [], "far": [], "bare": shape.bare, "leaf": leaf}
 
 
 func _trees_and_leaves() -> void:
@@ -446,7 +352,7 @@ func _trees_and_leaves() -> void:
 		for v in VARIANTS[kind]:
 			seed += 1
 			by_kind[kind].append(variants.size())
-			variants.append(_variant(kind, seed))
+			variants.append(Woodland.variant(kind, seed))
 	var bark := _mat(BARK, {"moss": 0.6})
 	var birch_bark := _mat(BARK, {"birch": 1.0})
 	var view := view_position()
@@ -478,35 +384,9 @@ func _trees_and_leaves() -> void:
 			_plant(variants, by_kind, _kind_at(tx, tz, off), tx, tz, off, far)
 		z -= step
 	_hero_oaks(variants)
-	for v in variants:
-		for lod in ["near", "far"]:
-			# in squares, so the trees off screen are not drawn
-			for square in _squares(v[lod], func(t: Transform3D) -> Vector3: return t.origin).values():
-				var mm := MultiMesh.new()
-				mm.transform_format = MultiMesh.TRANSFORM_3D
-				mm.mesh = v.full if lod == "near" else v.lite
-				mm.instance_count = square.size()
-				for i in square.size():
-					mm.set_instance_transform(i, square[i])
-				var mmi := MultiMeshInstance3D.new()
-				mmi.multimesh = mm
-				mmi.material_override = birch_bark if v.kind == "aspen" else bark
-				add_child(mmi)
-	var leaves := _mat(FOLIAGE)
-	for square in _squares(_foliage, func(c: Array) -> Vector3: return c[0]).values():
-		_foliage_mesh(square, leaves, 1.0)
-
-
-## Things grouped by the square of `size` metres they stand in (`where` says where each is).
-func _squares(things: Array, where: Callable, size := 40.0) -> Dictionary:
-	var out := {}
-	for t in things:
-		var p: Vector3 = where.call(t)
-		var key := Vector2i(floori(p.x / size), floori(p.z / size))
-		if not out.has(key):
-			out[key] = []
-		out[key].append(t)
-	return out
+	# in squares, so the trees and leaves off screen are not drawn
+	Woodland.add_trees(self, variants, bark, birch_bark)
+	Woodland.add_leaf_clumps(self, _foliage, _mat(FOLIAGE))
 
 
 # Aspens stand together in groves; leaning trees and old oaks near the path's edge
@@ -541,7 +421,7 @@ func _plant(variants: Array, by_kind: Dictionary, kind: String, tx: float, tz: f
 func _hero_oaks(variants: Array) -> void:
 	var spots := [[-5.2, -20.5, -2.2], [-4.6, -45.0, -0.6], [5.5, -36.0, 2.6]]
 	for k in spots.size():
-		var v := _variant("oak", 900 + k, {"height": 12.5, "radius": 0.95 - k * 0.1, "reach": 9.0, "roots": 9,
+		var v := Woodland.variant("oak", 900 + k, {"height": 12.5, "radius": 0.95 - k * 0.1, "reach": 9.0, "roots": 9,
 			"branches": 7, "curl": 1.4, "twist": 0.1, "flute": 0.14, "flare": 0.55, "lean": 0.12})
 		var tz: float = spots[k][1]
 		var tx: float = spots[k][0] + path_x(tz)
@@ -555,49 +435,9 @@ func _hero_oaks(variants: Array) -> void:
 				perches.append(tr * Vector3(c.x, c.y + 0.2, c.z))
 
 
-# Leaf clumps for one tree: a few cards round each crown point, the tree's own colour give or take
+# Leaf clumps for one tree: more cards to a clump close to the path
 func _crown(variant: Dictionary, tr: Transform3D, off: float) -> void:
-	var hue := 0.12 + rng.randf() * 0.88
-	if variant.kind == "aspen":
-		hue = rng.randf_range(0.0, 0.25)
-	var cards := 4 if off < 10.0 else (3 if off < 20.0 else (2 if off < 30.0 else 1))
-	var top := 0.0
-	for c in variant.crowns:
-		top = maxf(top, c.y)
-	for c in variant.crowns:
-		var centre := tr * Vector3(c.x, c.y, c.z)
-		var scale := tr.basis.get_scale().x
-		var size: float = c.w * scale
-		for k in cards:
-			var p := centre + Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.6, 0.8), rng.randf_range(-1, 1)) * size * 0.8
-			var lit := clampf(0.25 + 0.6 * (c.y / top) + (p.y - centre.y) / size * 0.3 + rng.randf_range(-0.15, 0.15), 0.0, 1.0)
-			var h := clampf(hue + rng.randf_range(-0.18, 0.18), 0.0, 0.99)
-			_foliage.append([p, Color(size * rng.randf_range(1.3, 1.9), float(variant.leaf) + h, lit, rng.randf())])
-
-
-func _foliage_mesh(cards: Array, material: ShaderMaterial, quad := 1.0) -> MultiMeshInstance3D:
-	var quad_mesh := QuadMesh.new()
-	quad_mesh.size = Vector2(quad, quad)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_custom_data = true
-	mm.mesh = quad_mesh
-	mm.instance_count = cards.size()
-	var lo := Vector3.INF
-	var hi := -Vector3.INF
-	for i in cards.size():
-		var p: Vector3 = cards[i][0]
-		mm.set_instance_transform(i, Transform3D(Basis(), p))
-		mm.set_instance_custom_data(i, cards[i][1])
-		lo = lo.min(p)
-		hi = hi.max(p)
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = material
-	if not cards.is_empty():
-		mmi.custom_aabb = AABB(lo - Vector3.ONE * 6.0, hi - lo + Vector3.ONE * 12.0)
-	add_child(mmi)
-	return mmi
+	Woodland.crown_cards(variant, tr, rng, 4 if off < 10.0 else (3 if off < 20.0 else (2 if off < 30.0 else 1)), _foliage)
 
 
 # --- low growth ---
@@ -631,15 +471,15 @@ func _undergrowth() -> void:
 			var size := rng.randf_range(0.45, 0.95)
 			grass.append([ground_point(x, zz) - Vector3(0, 0.05, 0), Color(size, rng.randf_range(0.0, 0.6), rng.randf_range(0.3, 0.9), rng.randf())])
 		z -= 1.2
-	_foliage_mesh(bushes, _mat(FOLIAGE, {"darkness": 0.25, "leaf_scale": 9.0, "sway": 0.4}))
-	_foliage_mesh(grass, _mat(FOLIAGE, {"blades": 1.0, "sway": 0.6,
+	Woodland.add_leaf_clumps(self, bushes, _mat(FOLIAGE, {"darkness": 0.25, "leaf_scale": 9.0, "sway": 0.4}))
+	Woodland.add_leaf_clumps(self, grass, _mat(FOLIAGE, {"blades": 1.0, "sway": 0.6,
 		"gold": Color(0.62, 0.48, 0.26), "orange": Color(0.48, 0.33, 0.17), "rust": Color(0.32, 0.21, 0.11)}))
 
 
 ## The 3D bushes round where you stand, of every kind, with their leaves one by one.
 func _bushes() -> void:
 	var view := view_position()
-	var kinds := BushBuilder.KINDS.keys()
+	var kinds := Woodland.BushBuilder.KINDS.keys()
 	var placed := {}
 	for kind in kinds:
 		placed[kind] = []
@@ -668,25 +508,7 @@ func _bushes() -> void:
 		var s := rng.randf_range(0.7, 1.35)
 		placed[kind].append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.15), s)), ground_point(x, z) - Vector3(0, 0.08, 0)))
 		count += 1
-	var builder := BushBuilder.new()
-	for kind in kinds:
-		if placed[kind].is_empty():
-			continue
-		var r := RandomNumberGenerator.new()
-		r.seed = hash(kind)
-		var info: Dictionary = BushBuilder.KINDS[kind]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = builder.build(r, kind)
-		mm.instance_count = placed[kind].size()
-		for i in placed[kind].size():
-			mm.set_instance_transform(i, placed[kind][i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		var params: Dictionary = info.colors.duplicate()
-		params["shape"] = info.shape
-		mmi.material_override = _mat(LEAF3D, params)
-		add_child(mmi)
+	Woodland.add_bushes(self, placed, SUN_DIR, SUN_COLOR)
 
 
 func _grass() -> void:
@@ -767,35 +589,12 @@ func _leaf_cards(count: int, falling: bool, around := Vector3.INF, radius := 0.0
 			var d := sqrt(rng.randf()) * radius
 			x = around.x + cos(a) * d
 			z = around.z + sin(a) * d
-		var p := ground_point(x, z)
-		var size := rng.randf_range(0.14, 0.26)
-		var basis := Basis(Vector3.UP, rng.randf() * TAU)
-		if falling:
-			p.y += rng.randf_range(7.0, 12.0)
-		else:
-			p.y += 0.02 + rng.randf() * 0.02
-			basis = Basis(Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized(), rng.randf_range(0.0, 0.3)) * basis
-		var custom := Color(rng.randf(), rng.randf(), rng.randf_range(0.5, 1.0) if falling else rng.randf_range(0.3, 0.85), rng.randf())
-		out.append([Transform3D(basis.scaled(Vector3(size, size, size)), p), custom])
+		out.append(Woodland.leaf_card(rng, ground_point(x, z), falling))
 	return out
 
 
 func _leaf_mesh(cards: Array, material: ShaderMaterial) -> void:
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(1, 1)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_custom_data = true
-	mm.mesh = plane
-	mm.instance_count = cards.size()
-	for i in cards.size():
-		mm.set_instance_transform(i, cards[i][0])
-		mm.set_instance_custom_data(i, cards[i][1])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = material
-	mmi.custom_aabb = AABB(Vector3(-60, -20, -160), Vector3(120, 50, 220))
-	add_child(mmi)
+	Woodland.add_leaves(self, cards, material, AABB(Vector3(-100, -20, -160), Vector3(160, 50, 220)))
 
 
 func _ground_leaves() -> void:
@@ -812,7 +611,6 @@ func _falling_leaves() -> void:
 
 # Shafts of sun slanting down through the trees, two crossed cards each, each coming and going
 func _shafts() -> void:
-	var sun := SUN_DIR.normalized()
 	var view := view_position()
 	var feet: Array[Vector3] = []
 	var z := 10.0
@@ -829,23 +627,7 @@ func _shafts() -> void:
 			continue
 		feet.append(ground_point(x, zz))
 	for foot in feet:
-		var length := rng.randf_range(14.0, 22.0)
-		var width := rng.randf_range(0.8, 2.6)
-		var mid: Vector3 = foot + sun * length * 0.5
-		var seed := rng.randf() * 10.0
-		var strength := rng.randf_range(0.1, 0.2)
-		for k in 2:
-			var quad := QuadMesh.new()
-			quad.size = Vector2(width, length)
-			var m := MeshInstance3D.new()
-			m.mesh = quad
-			var y_axis := sun
-			var x_axis := y_axis.cross(Vector3.UP).normalized().rotated(y_axis, k * PI * 0.5)
-			var z_axis := x_axis.cross(y_axis).normalized()
-			m.transform = Transform3D(Basis(x_axis, y_axis, z_axis), mid)
-			m.material_override = _mat(SHAFT, {"seed": seed, "strength": strength})
-			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(m)
+		Woodland.add_sun_shaft(self, foot, SUN_DIR, SUN_COLOR, rng.randf_range(14.0, 22.0), rng.randf_range(0.8, 2.6), rng.randf() * 10.0, rng.randf_range(0.1, 0.2))
 
 
 func _glow() -> void:
@@ -871,7 +653,7 @@ func _props() -> void:
 
 func _fallen_log() -> void:
 	var px := path_x(LOG_Z)
-	var builder := TreeBuilder.new()
+	var builder := Woodland.TreeBuilder.new()
 	var r := RandomNumberGenerator.new()
 	r.seed = 7
 	# a felled trunk, bare, lying along the path a little skew
@@ -901,7 +683,7 @@ func _fallen_trees() -> void:
 		var r := RandomNumberGenerator.new()
 		r.seed = 70 + k
 		var radius: float = lying[k][3]
-		var builder := TreeBuilder.new()
+		var builder := Woodland.TreeBuilder.new()
 		var mesh := builder.build(r, {"height": 13.0, "radius": radius, "reach": 4.0, "bare": true, "branches": 4,
 			"roots": 9, "curl": 1.0, "twist": 0.06, "flute": 0.1, "flare": 1.0})
 		var tz: float = lying[k][1]
@@ -993,7 +775,7 @@ func _pumpkin_patch() -> void:
 		var px := path_x(pz) - rng.randf_range(2.6, 12.5)
 		var size := rng.randf_range(0.45, 0.85)
 		vines.append([ground_point(px, pz) + Vector3(0, 0.05, 0), Color(size, rng.randf(), rng.randf_range(0.2, 0.7), rng.randf())])
-	_foliage_mesh(vines, _mat(FOLIAGE, {"gold": Color(0.55, 0.52, 0.22), "orange": Color(0.45, 0.4, 0.16), "rust": Color(0.42, 0.3, 0.14), "leaf_scale": 4.0, "sway": 0.3, "darkness": 0.1}))
+	Woodland.add_leaf_clumps(self, vines, _mat(FOLIAGE, {"gold": Color(0.55, 0.52, 0.22), "orange": Color(0.45, 0.4, 0.16), "rust": Color(0.42, 0.3, 0.14), "leaf_scale": 4.0, "sway": 0.3, "darkness": 0.1}))
 
 
 func _rail(a: Vector3, b: Vector3, mat: ShaderMaterial) -> void:

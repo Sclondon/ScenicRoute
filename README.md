@@ -42,11 +42,14 @@ from `Amberwood.SUN_DIR`, and warm fog does the depth. The DirectionalLight is t
 the sun, and for the grass and the animals, the only things the engine lights. Over it all,
 `shaders/paint.gdshader` warms the shadows, darkens the corners like a painted plate and adds paper grain.
 
+The wood's own pieces live in `woodland/` (`Woodland`, `woodland/woodland.gd`): GameCommon's `painted-woodland`
+component, made here. Change them here, then `sh kit.sh pull godot/painted-woodland <this folder>` from GameCommon.
+
 | Piece | How |
 | --- | --- |
-| Trees | `tree_builder.gd` makes a tree from a shape (`Amberwood.KINDS`: oak, tall, leaner, aspen, snag): trunk girth, lean (curving back up to the light), twist and flute (ropes that spiral up the trunk, deepest at the foot), flare, roots snaking over the ground, branches that swirl in S-curves. Each kind has a few variants, each built twice from one seed: in full near where you stand, and plainer (fewer rings and sides, no roots or twigs) further off. Three old oaks are made one-off by the path. MultiMeshes in 40 m squares, so trees off screen are not drawn. |
+| Trees | `woodland/tree_builder.gd` makes a tree from a shape (`Amberwood.KINDS`: oak, tall, leaner, aspen, snag): trunk girth, lean (curving back up to the light), twist and flute (ropes that spiral up the trunk, deepest at the foot), flare, roots snaking over the ground, branches that swirl in S-curves. Each kind has a few variants, each built twice from one seed: in full near where you stand, and plainer (fewer rings and sides, no roots or twigs) further off. Three old oaks are made one-off by the path. MultiMeshes in 40 m squares, so trees off screen are not drawn. |
 | Bark | `bark.gdshader`: plates cut by furrows that follow the trunk's twist, drawn the same size on every tree (the girth is in the mesh); aspens are pale with dark eyes and brows, lenticels, black bands and a black, cracked foot |
-| Leaves on trees | `foliage.gdshader`: camera-facing cards, each a clump of leaves of the tree's own shape (beech, oak, maple or aspen) at their own slants, ragged with strays, twigs in the gaps, lit on the sun side and glowing when the sun is behind it; each card set a step nearer or further so crossing cards do not flicker, and shrunk away right by the camera |
+| Leaves on trees | `woodland/shaders/foliage.gdshader`, cut from real leaves (`woodland/leaf_atlas.gd`: oak, sugar maple, beech, aspen, birch, drawn as SVG at start-up): camera-facing cards, each a clump of leaves of the tree's own shape (beech, oak, maple or aspen) at their own slants, ragged with strays, twigs in the gaps, lit on the sun side and glowing when the sun is behind it; each card set a step nearer or further so crossing cards do not flicker, and shrunk away right by the camera |
 | Bushes | close by, real ones (`bush_builder.gd`, `leaf3d.gdshader`): bronze, ember, bracken, dark and holly, a few clumps standing on the ground with stems up into them, every leaf its own card cut to its kind's shape; further off, painted clumps (`foliage.gdshader`) |
 | Grass | GameCommon's grass (as Warren has it, `scripts/grass.gd`) over the open ground and along the path, in autumn colours |
 | Corn | Warren's corn stalks (`corn_builder.gd`), swayed by `corn.gdshader` |
