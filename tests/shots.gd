@@ -30,6 +30,8 @@ func _shot(name: String) -> void:
 func _run() -> void:
 	await _wait(3.5)
 	var cam = current_scene.camera
+	# the real mouse over the window must not turn it
+	cam.set_process_input(false)
 	await _shot("00_view")
 	var names := ["01_left", "02_behind", "03_right"]
 	for i in 3:
