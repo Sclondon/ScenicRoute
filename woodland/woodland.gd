@@ -3,8 +3,9 @@ extends RefCounted
 ## A painted woodland kit, made for Scenic Route's Amberwood (after Over the Garden Wall): trees with roots,
 ## twisting ropey trunks, lean and swirling branches (`tree_builder.gd`) and their bark; leaf clumps of real
 ## leaves (`leaf_atlas.gd`); 3D bushes (`bush_builder.gd`); falling and fallen leaves; shafts of sun that come
-## and go; a painted sky; a pond and a stream. Everything lights itself by hand from a sun direction (the
-## shaders are `unshaded`, with a `sun_dir` and `sun_color`), so give every material that through `material()`.
+## and go; a painted sky; a stream (a still pond is GameCommon's water). Everything lights itself by hand from
+## a sun direction (the shaders are `unshaded`, with a `sun_dir` and `sun_color`), so give every material that
+## through `material()`.
 ##
 ## A game places things itself (where trees stand is its business) and hands them here to be built and drawn.
 
@@ -17,7 +18,7 @@ const LEAF := preload("res://woodland/shaders/leaf.gdshader")
 const LEAF3D := preload("res://woodland/shaders/leaf3d.gdshader")
 const SHAFT := preload("res://woodland/shaders/shaft.gdshader")
 const SKY := preload("res://woodland/shaders/sky.gdshader")
-const WATER := preload("res://woodland/shaders/water.gdshader")
+const STREAM := preload("res://woodland/shaders/stream.gdshader")
 
 ## The kinds of tree, and their shapes' ranges (see tree_builder.gd for what each setting does).
 const KINDS := {
@@ -239,27 +240,6 @@ static func sky(sun_dir: Vector3) -> Sky:
 	return s
 
 
-## A pond's water: a disc at `level`, `half` its half-widths (x, z), a little bigger than its hollow so the
-## edge is under the bank. Rings spread on it now and then.
-static func add_pond(parent: Node, centre: Vector2, half: Vector2, level: float, sun_dir: Vector3, sun_color: Color) -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var c := Vector3(centre.x, level, centre.y)
-	var n := 40
-	for i in n:
-		var a0 := TAU * i / n
-		var a1 := TAU * (i + 1) / n
-		var p0 := c + Vector3(cos(a0) * half.x, 0, sin(a0) * half.y) * 1.1
-		var p1 := c + Vector3(cos(a1) * half.x, 0, sin(a1) * half.y) * 1.1
-		for p in [c, p1, p0]:
-			st.set_normal(Vector3.UP)
-			st.set_uv(Vector2(p.x, p.z))
-			st.add_vertex(p)
-	var pond := MeshInstance3D.new()
-	pond.mesh = st.commit()
-	pond.material_override = material(WATER, sun_dir, sun_color, {"flow": 0.0, "pond": centre, "pond_size": half})
-	parent.add_child(pond)
-
 
 ## A stream's water: a ribbon `half` wide each side down `points` (its surface, from the top), running down it.
 static func add_stream(parent: Node, points: Array[Vector3], half: float, sun_dir: Vector3, sun_color: Color) -> void:
@@ -279,5 +259,5 @@ static func add_stream(parent: Node, points: Array[Vector3], half: float, sun_di
 			st.add_vertex(q[0])
 	var stream := MeshInstance3D.new()
 	stream.mesh = st.commit()
-	stream.material_override = material(WATER, sun_dir, sun_color, {"flow": 1.0})
+	stream.material_override = material(STREAM, sun_dir, sun_color)
 	parent.add_child(stream)

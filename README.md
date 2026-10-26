@@ -107,7 +107,7 @@ component, made here. Change them here, then `sh kit.sh pull godot/painted-woodl
 | Grass | GameCommon's grass (as Warren has it, `scripts/grass.gd`) over the open ground and along the path, in autumn colours |
 | Corn | Warren's corn stalks (`corn_builder.gd`), swayed by `corn.gdshader` |
 | Ground | one mesh following the path, its vertex colours marking wet ground, the corn's soil and how open it is; `ground.gdshader` draws the path (its line must match `Amberwood.path_x`), leaf litter, meadow, the far fields' patchwork and the drifting sun patches |
-| Water | `water.gdshader`: the pond (ripples, rings where something touched it, the sun glittering) and the stream (ripples running down it) |
+| Water | the pond is GameCommon's `water` (`scripts/water.gd`, `self_lit` so it sits in the painted light); the stream is the kit's `woodland/shaders/stream.gdshader` (ripples running down it) |
 | Sky | `sky.gdshader`: gold low by the sun to grey-blue overhead, long cloud streaks |
 | Leaves on the ground and falling | `leaf.gdshader`: oak, maple and plain leaves; falling ones swing and tumble down in the vertex shader and start again, many round where you stand |
 | Sun shafts | `shaft.gdshader`, two crossed additive cards each, each coming and going over half a minute or so |

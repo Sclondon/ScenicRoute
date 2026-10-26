@@ -297,7 +297,25 @@ func _ground() -> void:
 
 
 func _water() -> void:
-	Woodland.add_pond(self, POND, POND_SIZE, pond_level(), SUN_DIR, SUN_COLOR)
+	# the pond: GameCommon's water, a level box in its hollow (the ground hides the box's corners)
+	var pond := Water.new()
+	pond.size = Vector3(POND_SIZE.x * 2.2, 1.4, POND_SIZE.y * 2.2)
+	pond.position = Vector3(POND.x, pond_level(), POND.y)
+	pond.shallow = Color(0.3, 0.26, 0.15)
+	pond.deep = Color(0.04, 0.05, 0.04)
+	pond.depth_range = 1.0
+	pond.foam = Color(0.85, 0.78, 0.6)
+	pond.foam_width = 0.1
+	pond.sky = Color(0.98, 0.82, 0.55)
+	pond.mirror = 0.8
+	pond.self_lit = 0.7
+	pond.glint = 5.0
+	pond.lines = 0.6
+	pond.swell_height = 0.0
+	pond.sides = false
+	pond.underwater = false
+	pond.drops = false
+	add_child(pond)
 	# the stream: down its channel, a point every metre or so
 	var pts: Array[Vector3] = []
 	var steps := 90
