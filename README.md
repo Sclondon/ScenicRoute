@@ -5,16 +5,17 @@ drag to look about. Godot 4.7 (GL Compatibility), made for phones first and the 
 
 ## Amberwood
 
-An autumn wood at the golden hour, after *Over the Garden Wall*. You stand on a pale dirt path that wanders off
+An autumn wood at the golden hour, after *Over the Garden Wall*. A pale dirt path wanders off
 between dark trunks into a haze of sun; the crowns meet over it in gold, orange and rust; leaves come down;
 shafts of sun slant across the path and patches of light drift over the ground as the wind moves the tops.
-Down the path are a fallen log and a split-rail fence round a pumpkin patch gone to vine.
+You stand at a split-rail fence round a pumpkin patch gone to vine; back the way the path came is a fallen log.
 
-Drag to look (arrow keys work too), all the way round. Left alone, the view drifts back down the path and
+Drag to look (arrow keys work too), all the way round. Left alone, the view drifts back to the patch and
 breathes a little. The place's name and "Drag to look around" show once as it fades in, then go.
 
 Sound, all made in code at start-up (`scripts/ambience.gd`): wind in the tops, dry leaves hissing in the gusts,
-small birds now and then, a woodpecker far off.
+small birds now and then, a woodpecker far off. The wind and the leaves are baked with their gusts in them, and
+no volume is changed while they play: doing that every frame stutters in the web build.
 
 `scripts/tickets.gd` is kept for later, for charging site tickets for a visit; nothing uses it now.
 

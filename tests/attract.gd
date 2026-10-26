@@ -28,8 +28,8 @@ func _run() -> void:
 	var cam = main.camera
 	# paper grain only costs bitrate in a small film
 	main.paint.set_shader_parameter("grain", 0.0)
-	await _pan(cam, Vector2(-6, 14), Vector2(0, 2), 7.0)
-	await _pan(cam, Vector2(0, 2), Vector2(70, -6), 6.0)
-	await _pan(cam, Vector2(70, -6), Vector2(-60, 0), 8.0)
-	await _pan(cam, Vector2(-60, 0), Vector2(0, 3), 5.0)
+	await _pan(cam, Vector2(20, 12), Vector2(38, -6), 7.0)
+	await _pan(cam, Vector2(38, -6), Vector2(75, -10), 6.0)
+	await _pan(cam, Vector2(75, -10), Vector2(-5, 3), 8.0)
+	await _pan(cam, Vector2(-5, 3), Vector2(30, -4), 5.0)
 	quit()

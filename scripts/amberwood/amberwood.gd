@@ -25,9 +25,9 @@ const FAR_Z := -110.0
 const HALF_WIDTH := 46.0
 const GROUND_HALF := 80.0
 
-## Where you stand: on the path at the way in, looking down it into the light. `look` is (yaw, pitch)
+## Where you stand: on the path by the pumpkin patch, looking over the fence. `look` is (yaw, pitch)
 ## in degrees, yaw 0 down the path (-Z), positive to the left.
-const VIEW := {"z": 10.0, "side": 0.0, "eye": 1.6, "look": Vector2(0.0, 2.0)}
+const VIEW := {"z": -27.0, "side": 0.6, "eye": 1.6, "look": Vector2(38.0, -6.0)}
 const LOG_Z := -15.0
 const PATCH_Z := Vector2(-26.0, -40.0)
 
