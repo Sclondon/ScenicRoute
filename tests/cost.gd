@@ -4,14 +4,16 @@ extends SceneTree
 
 func _initialize() -> void:
 	var t0 := Time.get_ticks_msec()
+	# straight into a place (amberwood, or --place=<id>), not the postcards
+	load("res://scripts/main.gd").start_place = "amberwood"
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred(t0)
 
 
 func _run(t0: int) -> void:
-	while current_scene == null or not current_scene.is_node_ready():
+	while current_scene == null or not current_scene.is_node_ready() or current_scene.camera == null:
 		await process_frame
-	print("built in %d ms" % (Time.get_ticks_msec() - t0))
+	print("built in %d ms (with the fade in)" % (Time.get_ticks_msec() - t0))
 	await create_timer(3.0).timeout
 	var cam = current_scene.camera
 	for yaw in [38.0, 120.0, 200.0, -60.0]:

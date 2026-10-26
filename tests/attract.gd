@@ -6,6 +6,8 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	# straight into a place (amberwood, or --place=<id>), not the postcards
+	load("res://scripts/main.gd").start_place = "amberwood"
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 
@@ -23,7 +25,7 @@ func _pan(cam, from: Vector2, to: Vector2, seconds: float) -> void:
 
 
 func _run() -> void:
-	while current_scene == null or not current_scene.is_node_ready():
+	while current_scene == null or not current_scene.is_node_ready() or current_scene.camera == null:
 		await process_frame
 	var main = current_scene
 	var cam = main.camera

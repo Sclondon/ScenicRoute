@@ -1082,3 +1082,8 @@ func _stones() -> void:
 		s.scale = Vector3(size * rng.randf_range(1.0, 1.6), size * 0.6, size)
 		s.rotation.y = rng.randf() * TAU
 		add_child(s)
+
+
+## The sound of the wood (main.gd starts it when you arrive).
+func make_ambience() -> Node:
+	return load("res://scripts/ambience.gd").new()

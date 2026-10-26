@@ -1,14 +1,16 @@
 extends SceneTree
 ## Saves one picture from anywhere, for checking the layout by eye:
-##   godot --path . --audio-driver Dummy --resolution 800x450 -s tests/cam.gd -- <out.png> x y z yaw pitch [wait]
+##   godot --path . --audio-driver Dummy --resolution 800x450 -s tests/cam.gd -- <out.png> x y z yaw pitch [wait] [--place=<id>]
 
 func _initialize() -> void:
+	# straight into a place (amberwood, or --place=<id>), not the postcards
+	load("res://scripts/main.gd").start_place = "amberwood"
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 
 
 func _run() -> void:
-	var a := OS.get_cmdline_user_args()
+	var a := Array(OS.get_cmdline_user_args()).filter(func(s: String) -> bool: return not s.begins_with("--"))
 	await create_timer(float(a[6]) if a.size() > 6 else 3.5).timeout
 	var cam = current_scene.camera
 	cam.set_process(false)

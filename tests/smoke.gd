@@ -7,6 +7,8 @@ var failures: Array[String] = []
 
 
 func _initialize() -> void:
+	# straight into a place (amberwood, or --place=<id>), not the postcards
+	load("res://scripts/main.gd").start_place = "amberwood"
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 

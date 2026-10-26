@@ -10,6 +10,8 @@ func _initialize() -> void:
 		if a.begins_with("--out="):
 			out = a.substr(6)
 	DirAccess.make_dir_recursive_absolute(out)
+	# straight into a place (amberwood, or --place=<id>), not the postcards
+	load("res://scripts/main.gd").start_place = "amberwood"
 	change_scene_to_file("res://scenes/main.tscn")
 	_run.call_deferred()
 

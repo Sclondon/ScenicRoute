@@ -1,43 +1,55 @@
 extends Node
-## Scenic Route: one scenic place you stand in and look around. No buttons, no walking: drag to look.
+## Scenic Route: scenic places to stand in and look around. It opens on a spread of postcards, one for each
+## place (scripts/places.gd); tap one and you are there, and drag to look about. The only thing on screen
+## while you are there is a little postcard in the corner, to go back to the postcards.
 
-const Amberwood := preload("res://scripts/amberwood/amberwood.gd")
+const Places := preload("res://scripts/places.gd")
 const Look := preload("res://scripts/look.gd")
-const Ambience := preload("res://scripts/ambience.gd")
 const PAINT := preload("res://shaders/paint.gdshader")
+const SERIF := preload("res://fonts/LibreBaskerville.ttf")
 const ITALIC := preload("res://fonts/LibreBaskerville-Italic.ttf")
 
 const CREAM := Color(1.0, 0.95, 0.85)
+const INK := Color(0.16, 0.1, 0.06)
+const PAPER := Color(0.93, 0.87, 0.74)
+const GOLD := Color(0.95, 0.78, 0.45)
 
 var place: Node3D
+var place_info: Dictionary
 var camera: Camera3D
 var ambience: Node
 var paint: ShaderMaterial
 var title: Label
 var hint: Label
+var picker: Control
+var cards: Array[Control] = []
+var back_card: Control
+var _grid: GridContainer
+var _busy := false
+var _hinted := false
+## A place to open straight into, by id (tests set it before the scene starts).
+static var start_place := ""
 
 
 func _ready() -> void:
-	place = Amberwood.new()
-	add_child(place)
-	camera = Look.new()
-	place.add_child(camera)
-	camera.setup(Amberwood.view_position(), Amberwood.VIEW.look)
-	camera.make_current()
-	ambience = Ambience.new()
-	add_child(ambience)
 	_build_paint()
 	_build_words()
-	ambience.start()
-	# come up out of the dark, name the place, then say how to look about and get out of the way
-	paint.set_shader_parameter("fade", 1.0)
-	var tw := create_tween()
-	tw.tween_property(paint, "shader_parameter/fade", 0.0, 2.0)
-	tw.tween_property(title, "modulate:a", 1.0, 1.2)
-	tw.parallel().tween_property(hint, "modulate:a", 1.0, 1.2)
-	tw.tween_interval(4.0)
-	tw.tween_property(title, "modulate:a", 0.0, 2.0)
-	tw.parallel().tween_property(hint, "modulate:a", 0.0, 2.0)
+	_build_picker()
+	_build_back()
+	get_viewport().size_changed.connect(_lay_out)
+	_lay_out()
+	# a single place opens straight into it, and a test can ask for one (`start_place`, or --place=<id>)
+	var want := start_place
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--place="):
+			want = a.substr(8)
+	var open := Places.ready_places()
+	for p in open:
+		if p.id == want:
+			go(p)
+			return
+	if open.size() == 1:
+		go(open[0])
 
 
 func _build_paint() -> void:
@@ -54,17 +66,21 @@ func _build_paint() -> void:
 	layer.add_child(rect)
 
 
-func _label(text: String, size: int, color: Color) -> Label:
+func _label(text: String, font: Font, size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_override("font", ITALIC)
+	l.add_theme_font_override("font", font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	l.add_theme_constant_override("shadow_outline_size", 8)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+func _shadowed(l: Label) -> Label:
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	l.add_theme_constant_override("shadow_outline_size", 8)
 	l.modulate.a = 0.0
 	return l
 
@@ -73,17 +89,187 @@ func _build_words() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
-	title = _label("Amberwood", 40, CREAM)
+	title = _shadowed(_label("", ITALIC, 40, CREAM))
 	title.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	title.anchor_left = 0.0
 	title.anchor_right = 1.0
 	title.offset_top = -230
 	title.offset_bottom = -170
 	layer.add_child(title)
-	hint = _label("Drag to look around", 26, Color(CREAM, 0.85))
+	hint = _shadowed(_label("Drag to look around", ITALIC, 26, Color(CREAM, 0.85)))
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	hint.anchor_left = 0.0
 	hint.anchor_right = 1.0
 	hint.offset_top = -160
 	hint.offset_bottom = -120
 	layer.add_child(hint)
+
+
+# --- the postcards ---
+
+func _build_picker() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 3
+	add_child(layer)
+	picker = ColorRect.new()
+	picker.color = Color(0.09, 0.06, 0.04)
+	picker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(picker)
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_FULL_RECT)
+	column.offset_left = 24
+	column.offset_right = -24
+	column.offset_top = 40
+	column.offset_bottom = -24
+	column.add_theme_constant_override("separation", 18)
+	picker.add_child(column)
+	column.add_child(_label("S C E N I C   R O U T E", SERIF, 30, GOLD))
+	column.add_child(_label("Where to?", ITALIC, 24, Color(CREAM, 0.75)))
+	_grid = GridContainer.new()
+	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grid.add_theme_constant_override("h_separation", 18)
+	_grid.add_theme_constant_override("v_separation", 18)
+	column.add_child(_grid)
+	for p in Places.ready_places():
+		var card := _postcard(p)
+		cards.append(card)
+		_grid.add_child(card)
+
+
+# A postcard: the place's picture with a white border, its name and a line about it on the card below
+func _postcard(p: Dictionary) -> Control:
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PAPER
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(10)
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 10
+	card.add_theme_stylebox_override("panel", sb)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.set_meta("place", p)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 6)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(inner)
+	var picture := TextureRect.new()
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	picture.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	picture.custom_minimum_size = Vector2(0, 90)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var path := Places.card_path(p.id)
+	if ResourceLoader.exists(path):
+		picture.texture = load(path)
+	else:
+		# no picture yet: the place's own colour
+		var g := Gradient.new()
+		g.set_color(0, p.tint.darkened(0.5))
+		g.set_color(1, p.tint)
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill_to = Vector2(0, 1)
+		picture.texture = gt
+	inner.add_child(picture)
+	inner.add_child(_label(p.name, SERIF, 24, INK))
+	inner.add_child(_label(p.line, ITALIC, 17, Color(INK, 0.75)))
+	card.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			go(p))
+	return card
+
+
+func _lay_out() -> void:
+	var size := get_viewport().get_visible_rect().size
+	_grid.columns = 1 if size.x < size.y else 2
+
+
+# --- going and coming back ---
+
+## Go to a place (one of Places.PLACES): fade out, build it, fade in on its view.
+func go(p: Dictionary) -> void:
+	if _busy:
+		return
+	_busy = true
+	var tw := create_tween()
+	tw.tween_property(paint, "shader_parameter/fade", 1.0, 0.5)
+	await tw.finished
+	picker.visible = false
+	_leave_place()
+	place_info = p
+	place = load(p.script).new()
+	add_child(place)
+	camera = Look.new()
+	place.add_child(camera)
+	camera.setup(place.view_position(), place.get_script().VIEW.look)
+	camera.make_current()
+	if place.has_method("make_ambience"):
+		ambience = place.make_ambience()
+		add_child(ambience)
+		ambience.start()
+	back_card.visible = true
+	title.text = p.name
+	# come up out of the dark, name the place, then say how to look about (the first time) and get out of the way
+	tw = create_tween()
+	tw.tween_property(paint, "shader_parameter/fade", 0.0, 1.6)
+	tw.tween_property(title, "modulate:a", 1.0, 1.0)
+	if not _hinted:
+		tw.parallel().tween_property(hint, "modulate:a", 1.0, 1.0)
+	tw.tween_interval(3.5)
+	tw.tween_property(title, "modulate:a", 0.0, 1.8)
+	tw.parallel().tween_property(hint, "modulate:a", 0.0, 1.8)
+	_hinted = true
+	await tw.finished
+	_busy = false
+
+
+## Back to the postcards.
+func back() -> void:
+	if _busy or place == null:
+		return
+	_busy = true
+	var tw := create_tween()
+	tw.tween_property(paint, "shader_parameter/fade", 1.0, 0.5)
+	await tw.finished
+	_leave_place()
+	back_card.visible = false
+	title.modulate.a = 0.0
+	hint.modulate.a = 0.0
+	picker.visible = true
+	paint.set_shader_parameter("fade", 0.0)
+	_busy = false
+
+
+func _leave_place() -> void:
+	if ambience:
+		ambience.queue_free()
+		ambience = null
+	if place:
+		place.queue_free()
+		place = null
+		camera = null
+
+
+# The little postcard in the corner that takes you back
+func _build_back() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 2
+	add_child(layer)
+	back_card = Control.new()
+	back_card.position = Vector2(22, 22)
+	back_card.size = Vector2(76, 56)
+	back_card.visible = false
+	back_card.modulate.a = 0.75
+	back_card.draw.connect(func():
+		var r := Rect2(Vector2(6, 8), Vector2(60, 40))
+		back_card.draw_rect(Rect2(r.position + Vector2(3, 3), r.size), Color(0, 0, 0, 0.35))
+		back_card.draw_rect(r, PAPER)
+		back_card.draw_rect(Rect2(r.position + Vector2(4, 4), Vector2(30, 32)), Color(0.86, 0.5, 0.18, 0.85))
+		back_card.draw_rect(Rect2(r.position + Vector2(44, 5), Vector2(11, 13)), Color(0.55, 0.3, 0.15))
+		for k in 3:
+			back_card.draw_line(r.position + Vector2(38, 23 + k * 6), r.position + Vector2(56, 23 + k * 6), Color(INK, 0.6), 1.5))
+	back_card.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+			back())
+	layer.add_child(back_card)
