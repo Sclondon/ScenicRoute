@@ -30,6 +30,31 @@ their own voices (GameCommon's). (Made-up small birds, pure whistles, were taken
 
 `scripts/tickets.gd` is kept for later, for charging site tickets for a visit; nothing uses it now.
 
+## The Velvet Moth
+
+A night club, late, the floor still full (`scripts/velvet_moth/`, `shaders/velvet_moth/`). You stand at the brass
+rail of a low mezzanine looking down over the dance floor to the DJ's booth, under a great neon moth that beats
+its wings every two beats. The floor's glass tiles pulse to the beat in a pattern that changes every four bars
+(checker, rings going out, tiles at random, sweeping stripes); beams from the truss and the stage sweep through
+the haze; a mirror ball throws its specks round the walls, ceiling and people; speaker cones kick. The crowd is a
+few hundred dark figures with coloured rims, lit from under by the tile each stands on, every one dancing its own
+way (bouncing, a fist pumping, hands in the air, more of them as the night swells), danced in the vertex shader
+on MultiMeshes. Behind you is the bar: a lit wall of bottles, lamps hanging over a buttoned velvet counter, the
+club's name in neon script, a bartender and people leaning on it. To the sides, velvet booths up here and down by
+the floor, little lamps on the tables, people round tall tables, smaller neon moths on the walls.
+
+Everything moves to one beat, 122 BPM, handed to every shader each frame as `beat`; it is kept on the music's own
+clock (`ClubSound.beat()`), so the lights land on the kick. All painted by hand, no engine lights:
+`club.gdshaderinc` holds the beat, the floor's colours and `club_light` (a deep violet dark, the floor's glow
+thrown up on everything near it, magenta and teal washes from the stage's sides, the warm bar), which every
+material paints itself by; violet fog is the haze and the engine's glow is the neon. The room is built in code
+(`geo.gd`) into one mesh per material, so it is about 25 draw calls any way you look.
+
+Sound (`club_sound.gd`), all made in code at start-up: a house groove (four-on-the-floor kick, offbeat hats, a
+clap on two and four, a rolling bassline and a soft chord stab over Am7, Fmaj7, Cmaj7, G), muffled as if heard
+from up on the mezzanine through the room, as one 8-bar loop that wraps round without a seam; and a crowd's
+murmur under it. Nothing's volume changes while they play.
+
 ## How it is made
 
 Everything is built from code and seeded (`scripts/amberwood/amberwood.gd`), so it is the same place every visit.
