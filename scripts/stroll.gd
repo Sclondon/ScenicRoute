@@ -79,13 +79,19 @@ func stroll(step: int) -> void:
 	left_spot.emit(_walk_from)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+# In _input, so no Control takes the touch first. Some phones never send the finger going down,
+# so a drag from a finger we have not seen takes up that finger.
+func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed and _dragging < 0:
 			_dragging = event.index
 		elif not event.pressed and event.index == _dragging:
 			_dragging = -1
-	elif event is InputEventScreenDrag and event.index == _dragging:
+	elif event is InputEventScreenDrag:
+		if _dragging < 0:
+			_dragging = event.index
+		if event.index != _dragging:
+			return
 		var scale := 450.0 / maxf(get_viewport().get_visible_rect().size.x, 1.0)
 		_yaw += event.relative.x * DRAG_SPEED * scale
 		_pitch += event.relative.y * DRAG_SPEED * scale

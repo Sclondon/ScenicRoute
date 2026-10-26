@@ -59,6 +59,8 @@ godot --path . --audio-driver Dummy --resolution 450x800 -s tests/shots.gd -- --
 ```
 
 saves the window, each spot, the view back the way you came, and a stroll from the first spot to the second.
+`tests/smoke.gd` plays it with simulated touches (punch, drag, a drag with no finger-down, stroll, leave) and ends
+PASSED or FAILED. `tests/attract.gd` plays the arcade preview film (see its header for recording it).
 
 ## Building
 

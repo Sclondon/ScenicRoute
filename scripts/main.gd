@@ -30,6 +30,8 @@ var title: Label
 var hint: Label
 var back_button: Button
 var on_button: Button
+var go_button: Button
+var leave_button: Button
 var visiting := false
 
 
@@ -134,6 +136,7 @@ func _build_hud() -> void:
 	layer.add_child(hud)
 
 	var leave := _button("Leave", 26)
+	leave_button = leave
 	leave.custom_minimum_size = Vector2(0, 70)
 	leave.position = Vector2(24, 24)
 	leave.pressed.connect(_leave)
@@ -156,7 +159,7 @@ func _build_hud() -> void:
 	hint.set_anchors_preset(Control.PRESET_CENTER)
 	hint.anchor_left = 0.0
 	hint.anchor_right = 1.0
-	hint.offset_top = 60
+	hint.offset_top = -160
 	hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 	hint.add_theme_constant_override("shadow_outline_size", 8)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -241,6 +244,7 @@ func _build_booth() -> void:
 	booth.add_child(punch_hole)
 
 	var go := _button("Punch ticket", 32)
+	go_button = go
 	go.pressed.connect(_board)
 	column.add_child(go)
 	if Tickets.preview:
