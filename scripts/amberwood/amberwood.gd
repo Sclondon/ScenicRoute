@@ -25,14 +25,9 @@ const FAR_Z := -110.0
 const HALF_WIDTH := 46.0
 const GROUND_HALF := 80.0
 
-## The places you can stand, from the way in to where the light is. `look` is (yaw, pitch) in degrees,
-## yaw 0 down the path (-Z), positive to the left.
-const SPOTS := [
-	{"name": "The way in", "z": 10.0, "side": 0.0, "eye": 1.6, "look": Vector2(0.0, 2.0)},
-	{"name": "The fallen log", "z": -15.0, "side": 3.2, "eye": 1.4, "look": Vector2(40.0, -4.0)},
-	{"name": "The pumpkin fence", "z": -31.0, "side": 0.5, "eye": 1.6, "look": Vector2(60.0, -8.0)},
-	{"name": "Where the light gets in", "z": -50.0, "side": 0.3, "eye": 1.6, "look": Vector2(0.0, 6.0)},
-]
+## Where you stand: on the path at the way in, looking down it into the light. `look` is (yaw, pitch)
+## in degrees, yaw 0 down the path (-Z), positive to the left.
+const VIEW := {"z": 10.0, "side": 0.0, "eye": 1.6, "look": Vector2(0.0, 2.0)}
 const LOG_Z := -15.0
 const PATCH_Z := Vector2(-26.0, -40.0)
 
@@ -64,12 +59,10 @@ static func ground_point(x: float, z: float) -> Vector3:
 	return Vector3(x, height(x, z), z)
 
 
-## Where you stand at a spot, and which way you face.
-static func spot_position(i: int) -> Vector3:
-	var s: Dictionary = SPOTS[i]
-	var z: float = s.z
-	var x := path_x(z) + float(s.side)
-	return Vector3(x, height(x, z) + float(s.eye), z)
+static func view_position() -> Vector3:
+	var z: float = VIEW.z
+	var x := path_x(z) + float(VIEW.side)
+	return Vector3(x, height(x, z) + float(VIEW.eye), z)
 
 
 func _ready() -> void:

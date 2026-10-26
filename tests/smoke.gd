@@ -1,6 +1,6 @@
 extends SceneTree
-## Plays it with simulated touches, as a phone would: punch the ticket, drag to look about, stroll on,
-## and leave. Ends PASSED or FAILED.
+## Plays it with simulated touches, as a phone would: you are in the wood at once, with no buttons,
+## and a drag looks about. Ends PASSED or FAILED.
 ##   godot --path . --audio-driver Dummy --resolution 450x800 -s tests/smoke.gd
 
 var failures: Array[String] = []
@@ -34,14 +34,6 @@ func _touch(p: Vector2, pressed: bool, index := 0) -> void:
 	Input.parse_input_event(e)
 
 
-func _tap(control: Control) -> void:
-	var p := control.get_global_rect().get_center()
-	_touch(p, true)
-	await process_frame
-	_touch(p, false)
-	await process_frame
-
-
 func _drag(from: Vector2, by: Vector2, index := 0, with_press := true) -> void:
 	if with_press:
 		_touch(from, true, index)
@@ -61,10 +53,8 @@ func _run() -> void:
 	await _wait(0.8)
 	var main = current_scene
 	var cam = main.camera
-	_check(main.booth.visible, "starts at the ticket window")
-	await _tap(main.go_button)
-	await _wait(2.5)
-	_check(main.visiting and not main.booth.visible, "punching the ticket lets you in")
+	_check(main.find_children("*", "BaseButton", true, false).is_empty(), "there are no buttons")
+	var at: Vector3 = cam.position
 	var yaw: float = cam._yaw
 	await _drag(Vector2(360, 600), Vector2(-200, 0))
 	_check(absf(cam._yaw - yaw) > 10.0, "a drag turns the view (%.1f -> %.1f)" % [yaw, cam._yaw])
@@ -72,16 +62,9 @@ func _run() -> void:
 	yaw = cam._yaw
 	await _drag(Vector2(360, 600), Vector2(200, 0), 77, false)
 	_check(absf(cam._yaw - yaw) > 10.0, "a drag with no press still turns the view")
-	await _tap(main.on_button)
-	await _wait(0.5)
-	_check(cam.walking, "On strolls along the path")
-	var t := 0.0
-	while cam.walking and t < 40.0:
-		await _wait(0.5)
-		t += 0.5
-	_check(cam.index == 1, "arrives at the fallen log")
-	await _tap(main.leave_button)
-	await _wait(2.0)
-	_check(main.booth.visible and not main.visiting, "Leave goes back to the window")
+	# all the way round
+	for i in 6:
+		await _drag(Vector2(400, 400), Vector2(-300, 0))
+	_check(cam.position == at, "you stay where you stand")
 	print("PASSED" if failures.is_empty() else "FAILED: %s" % ", ".join(failures))
 	quit(0 if failures.is_empty() else 1)

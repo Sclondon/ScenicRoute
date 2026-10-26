@@ -1,41 +1,27 @@
 # Scenic Route
 
-A lounge on the line out of Wayside Station: pay a few tickets at the window and go and sit somewhere beautiful
-for as long as you like. No goals, no score. Godot 4.7 (GL Compatibility), made for phones first and the web.
-
-## The ticket window
-
-You start at the window, with the place you are buying a ticket to drifting behind it. The ticket shows the
-place, a line about it and the fare. **Punch ticket** punches a hole in it and the window lifts, and you are
-standing there. **Leave** brings you back to the window.
-
-Tickets are the site's coins (the counter at Wayside Station calls them tickets). The site has no route yet for
-a game to spend them, so every ride is on a **preview pass** for now: the fare is shown and nothing is taken
-(`scripts/tickets.gd`, `Tickets.preview`). `Tickets.admit(place, fare)` is the one place that changes when the
-server can charge.
+A scenic place to stand in and look around. No goals, no score, no buttons, no walking: you are there, and you
+drag to look about. Godot 4.7 (GL Compatibility), made for phones first and the web.
 
 ## Amberwood
 
-The first stop: an autumn wood at the golden hour, after *Over the Garden Wall*. A pale dirt path wanders off
+An autumn wood at the golden hour, after *Over the Garden Wall*. You stand on a pale dirt path that wanders off
 between dark trunks into a haze of sun; the crowns meet over it in gold, orange and rust; leaves come down;
 shafts of sun slant across the path and patches of light drift over the ground as the wind moves the tops.
+Down the path are a fallen log and a split-rail fence round a pumpkin patch gone to vine.
 
-You stand at one of four spots and drag to look about (arrow keys work too). **On** and **Back** stroll you
-along the path to the next spot, with leaves crunching underfoot:
-
-1. **The way in**, looking down the path into the light
-2. **The fallen log**, sitting on a felled trunk beside the path
-3. **The pumpkin fence**, by a split-rail fence round a pumpkin patch gone to vine
-4. **Where the light gets in**, near the bright end of the path
-
-Left alone, the view drifts back to the spot's own view and breathes a little.
+Drag to look (arrow keys work too), all the way round. Left alone, the view drifts back down the path and
+breathes a little. The place's name and "Drag to look around" show once as it fades in, then go.
 
 Sound, all made in code at start-up (`scripts/ambience.gd`): wind in the tops, dry leaves hissing in the gusts,
-small birds now and then, a woodpecker far off, footsteps in leaves.
+small birds now and then, a woodpecker far off.
+
+`scripts/tickets.gd` is kept for later, for charging site tickets for a visit; nothing uses it now.
 
 ## How it is made
 
 Everything is built from code and seeded (`scripts/amberwood/amberwood.gd`), so it is the same wood every visit.
+Where you stand is `Amberwood.VIEW`; `scripts/look.gd` is the camera.
 The look comes from painting rather than lighting: every material is `unshaded` and lights itself by hand from
 `Amberwood.SUN_DIR` (the DirectionalLight is only there for the fog's glow towards the sun), and warm exponential
 fog does the depth. Over it all, `shaders/paint.gdshader` warms the shadows, darkens the corners like a painted
@@ -58,9 +44,9 @@ plate and adds paper grain.
 godot --path . --audio-driver Dummy --resolution 450x800 -s tests/shots.gd -- --out=<folder>
 ```
 
-saves the window, each spot, the view back the way you came, and a stroll from the first spot to the second.
-`tests/smoke.gd` plays it with simulated touches (punch, drag, a drag with no finger-down, stroll, leave) and ends
-PASSED or FAILED. `tests/attract.gd` plays the arcade preview film (see its header for recording it).
+saves the view, then round to the left, behind and the right. `tests/smoke.gd` plays it with simulated touches
+(no buttons, a drag turns the view, a drag with no finger-down, you stay put) and ends PASSED or FAILED.
+`tests/attract.gd` plays the arcade preview film (see its header for recording it).
 
 ## Building
 

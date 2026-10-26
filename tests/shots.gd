@@ -1,5 +1,5 @@
 extends SceneTree
-## Saves pictures of Amberwood to check the look by eye:
+## Saves pictures of Amberwood to check the look by eye: the view, then round to each side and behind.
 ##   godot --path . --audio-driver Dummy --resolution 450x800 -s tests/shots.gd -- --out=<folder>
 
 var out := "user://shots"
@@ -26,26 +26,14 @@ func _shot(name: String) -> void:
 
 
 func _run() -> void:
-	await _wait(1.0)
-	var main = current_scene
-	await _shot("00_booth")
-	main._board()
-	await _wait(3.0)
-	await _shot("01_way_in")
-	for i in range(1, 4):
-		main.camera.go_to(i)
-		await _wait(1.0)
-		await _shot("%02d_spot" % (i + 1))
-	main.camera.go_to(0)
-	main.camera._yaw = 150.0
-	main.camera._home = Vector2(150, 0)
-	await _wait(1.0)
-	await _shot("05_behind")
-	main.camera.go_to(0)
-	main.camera.stroll(1)
-	await _wait(5.0)
-	await _shot("06_walking")
-	await _wait(30.0)
-	print("arrived at ", main.camera.index, " walking ", main.camera.walking)
-	await _shot("07_arrived")
+	await _wait(3.5)
+	var cam = current_scene.camera
+	await _shot("00_view")
+	var names := ["01_left", "02_behind", "03_right"]
+	for i in 3:
+		cam._yaw = 90.0 * (i + 1)
+		cam._pitch = 0.0
+		cam._since_touch = 0.0
+		await _wait(0.5)
+		await _shot(names[i])
 	quit()
