@@ -1,5 +1,5 @@
-// Leaves and flowers on the plumeria trees and the hibiscus in the planters: each a card cut to its
-// shape. UV2.x the kind: 0 a long plumeria leaf, 1 a hibiscus leaf, 2 a plumeria flower (five creamy
+// The plumeria trees' leaves and the flowers (the hibiscus bushes themselves are painted-woodland's): each a card cut to its
+// shape. UV2.x the kind: 0 a long plumeria leaf, 2 a plumeria flower (five creamy
 // petals turning over each other, a yolk-yellow heart), 3 a hibiscus flower (five broad red petals, a
 // dark eye, the long stamen). COLOR.rgb tints it. They stir a little in the breeze.
 shader_type spatial;
@@ -31,12 +31,6 @@ void fragment() {
 		if (abs(p.x) > w) discard;
 		base = vec3(0.2, 0.38, 0.14) * (0.85 + 0.25 * smoothstep(0.0, w, abs(p.x)));
 		base = mix(base, vec3(0.55, 0.62, 0.3), smoothstep(0.05, 0.0, abs(p.x)));
-	} else if (kind < 1.5) {
-		// a hibiscus leaf: a broad oval, toothed
-		float a = atan(p.y, p.x);
-		float r = 0.82 * (1.0 - 0.25 * p.y) * (1.0 + 0.04 * sin(a * 22.0));
-		if (length(p * vec2(1.3, 1.0)) > r) discard;
-		base = vec3(0.14, 0.32, 0.12) * (0.85 + 0.2 * vnoise(p * 4.0));
 	} else {
 		bool hib = kind > 2.5;
 		float a = atan(p.y, p.x);

@@ -156,17 +156,18 @@ static func add_leaf_clumps(parent: Node, cards: Array, mat: Material) -> void:
 
 
 ## Real 3D bushes: `placed` is {kind: [Transform3D, ...]} (bush_builder.gd's KINDS), one MultiMesh a kind.
-static func add_bushes(parent: Node, placed: Dictionary, sun_dir: Vector3, sun_color: Color) -> void:
+## `kinds` adds kinds of your own (shaped as BushBuilder.KINDS' entries: other leaves, other colours), by name.
+static func add_bushes(parent: Node, placed: Dictionary, sun_dir: Vector3, sun_color: Color, kinds := {}) -> void:
 	var builder := BushBuilder.new()
 	for kind in placed:
 		if placed[kind].is_empty():
 			continue
 		var r := RandomNumberGenerator.new()
 		r.seed = hash(kind)
-		var info: Dictionary = BushBuilder.KINDS[kind]
+		var info: Dictionary = kinds[kind] if kinds.has(kind) else BushBuilder.KINDS[kind]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = builder.build(r, kind)
+		mm.mesh = builder.build(r, kind, info)
 		mm.instance_count = placed[kind].size()
 		for i in placed[kind].size():
 			mm.set_instance_transform(i, placed[kind][i])

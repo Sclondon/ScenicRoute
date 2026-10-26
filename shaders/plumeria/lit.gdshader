@@ -1,8 +1,7 @@
-// Things at the club (the deck, the bar, loungers, the canoe, people far off), painted: the vertex
+// Things at the club (the deck, the bar, loungers, the canoe, the catamaran), painted: the vertex
 // colour in two tones, warm gold where the low sun reaches it and violet in the shade, a hot rim on
 // whatever stands against the sun, brush noise, then the haze. UV2.x makes it glow (bottles with the
-// light behind them, a lamp); `planks` draws deck boards; `stride` swings limbs (UV2.y: +-1 legs, +-2 arms)
-// so a figure walks.
+// light behind them, a lamp); `planks` draws deck boards, `weave` lauhala matting.
 shader_type spatial;
 render_mode unshaded, cull_disabled, fog_disabled;
 
@@ -12,8 +11,6 @@ uniform float gloss = 0.0;
 uniform float brush = 0.22;
 uniform float planks = 0.0;
 uniform float weave = 0.0;
-uniform float stride = 0.0;
-uniform float stride_phase = 0.0;
 uniform float haze_density = 0.0034;
 
 varying vec3 world_pos;
@@ -22,18 +19,6 @@ varying vec2 extra;
 
 void vertex() {
 	extra = UV2;
-	if (stride > 0.0 && abs(UV2.y) > 0.5) {
-		// limbs swing about the hip or shoulder, legs and arms opposite
-		float side = sign(UV2.y);
-		bool arm = abs(UV2.y) > 1.5;
-		float pivot = arm ? 1.38 : 0.86;
-		float a = sin(TIME * stride * 6.0 + stride_phase) * side * (arm ? -0.45 : 0.5);
-		vec2 q = vec2(VERTEX.z, VERTEX.y - pivot);
-		q = vec2(q.x * cos(a) - q.y * sin(a), q.x * sin(a) + q.y * cos(a));
-		VERTEX.z = q.x;
-		VERTEX.y = q.y + pivot;
-		NORMAL = vec3(NORMAL.x, NORMAL.y * cos(a) + NORMAL.z * sin(a), -NORMAL.y * sin(a) + NORMAL.z * cos(a));
-	}
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

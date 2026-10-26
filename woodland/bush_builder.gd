@@ -26,13 +26,15 @@ const KINDS := {
 var st: SurfaceTool
 
 
-func build(rng: RandomNumberGenerator, kind: String) -> ArrayMesh:
-	var info: Dictionary = KINDS[kind]
+## `info`: a kind of your own, shaped as one of KINDS (leave it empty for the KINDS entry named `kind`).
+func build(rng: RandomNumberGenerator, kind: String, info := {}) -> ArrayMesh:
+	if info.is_empty():
+		info = KINDS[kind]
 	st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var size: Vector2 = info.size
 	var length: float = info.leaf
-	if kind == "bracken":
+	if info.shape < -0.5:
 		for f in info.leaves:
 			_frond(rng, f * TAU / info.leaves + rng.randf_range(-0.2, 0.2), length * rng.randf_range(0.7, 1.15))
 		return st.commit()
