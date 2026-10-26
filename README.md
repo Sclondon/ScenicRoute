@@ -1,7 +1,10 @@
 # Scenic Route
 
-A scenic place to stand in and look around. No goals, no score, no buttons, no walking: you are there, and you
-drag to look about. Godot 4.7 (GL Compatibility), made for phones first and the web.
+Scenic places to stand in and look around. It opens on a spread of postcards (`scripts/places.gd`), one for each
+place; tap one and you are there. No goals, no score, no walking: drag to look about. The only thing on screen is a
+little postcard in the corner, to go back to the postcards. Godot 4.7 (GL Compatibility), made for phones first and
+the web. What a place is, and how to add one: [PLACES.md](PLACES.md). Places are built from GameCommon's components
+wherever one fits (each place's section says which, and why anything is its own).
 
 ## Amberwood
 
@@ -189,6 +192,8 @@ saves the view, then round to the left, behind and the right. `tests/cam.gd` sav
 (see its header). `tests/smoke.gd` plays it with simulated touches (no buttons, a drag turns the view, a drag with
 no finger-down, you stay put) and ends PASSED or FAILED. `tests/cost.gd` prints the start-up time and the
 triangles and draw calls looking four ways (about 320-430k and 95-195 on a desktop, 2026-10-26).
+`tests/picker.gd` taps each postcard, goes there and comes back. `tests/cards.gd -- --place=<id>` makes a place's
+postcard from its view. Most tests open straight into Amberwood; `--place=<id>` for another.
 `tests/attract.gd` plays the arcade preview film (see its header for recording it).
 
 ## Building
