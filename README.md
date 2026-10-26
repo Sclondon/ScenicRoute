@@ -30,6 +30,34 @@ their own voices (GameCommon's). (Made-up small birds, pure whistles, were taken
 
 `scripts/tickets.gd` is kept for later, for charging site tickets for a visit; nothing uses it now.
 
+## The Plumeria Beach Club
+
+A Hawaiian beach club as the sun goes down (`scripts/plumeria/plumeria.gd`, id `plumeria`). You sit at the rail
+of its open-air deck, a mai tai with a paper umbrella and a plumeria lei on the ledge in front of you, looking down
+a path of tiki torches to the sea. The sun sits just over the water with bars of cloud across it, its road of
+glitter coming over the sea to you. Long swells roll in, turn green-gold where the sun shines through their faces,
+break into white water and wash up the wet sand (which mirrors the sky), then slide back. A palm leans out over the
+beach; string lights sag between bamboo poles over you and back to the thatched A-frame tiki bar behind (shelves
+of bottles, glass fishing floats glowing in their nets, carved tikis, the club's name on a board). Loungers and
+furled umbrellas, an outrigger canoe on the sand, a surfboard rack, a lifeguard tower, plumeria trees and hibiscus
+in planters, cottages back among the palms. A couple walks the water's edge, someone stands in the shallows, a
+catamaran sails under the sun, frigatebirds wheel overhead; green fluted mountains rise inland and a worn crater
+headland lies across the bay, all in the evening haze.
+
+It is painted like Amberwood: every material is `unshaded` and lights itself off one low sun, and
+`shaders/plumeria/common.gdshaderinc` holds that sun, the sky's colour in any direction (the sky, the sea's
+reflections and the haze on far things all use it, so they agree) and the surf's clock. The ground and the sea are
+grids laid along the curving shore (`Plumeria.shore_z`); the surf is shaped in the sea's vertex shader and the wash
+drawn in the land's. Props are built from code into a few merged meshes (`mesh_kit.gd`), palms by
+`palm_builder.gd` (two meshes for the near ones, two plainer for the far), the little lights as one MultiMesh,
+the torches GameCommon's fire (`scripts/fire.gd`, lights off). Shadows are long soft quads laid on the sand.
+
+Sound (`scripts/plumeria/sound.gd`), baked at start-up: the surf on a 24 s round of three waves (a crash, white
+water rolling in, the wash, a fizzing draw-back) whose start is handed to the sea and sand shaders so each crash is
+heard as it is seen; palms rustling; a soft torch crackle; and now and then a few strummed ukulele chords
+(Karplus-Strong). No volume is changed while they play. About 245k triangles and 30 draw calls any way you look,
+built in about 1.3 s (2026-10-26).
+
 ## How it is made
 
 Everything is built from code and seeded (`scripts/amberwood/amberwood.gd`), so it is the same place every visit.
