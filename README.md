@@ -65,23 +65,39 @@ break into white water and wash up the wet sand (which mirrors the sky), then sl
 beach; string lights sag between bamboo poles over you and back to the thatched A-frame tiki bar behind (shelves
 of bottles, glass fishing floats glowing in their nets, carved tikis, the club's name on a board). Loungers and
 furled umbrellas, an outrigger canoe on the sand, a surfboard rack, a lifeguard tower, plumeria trees and hibiscus
-in planters, cottages back among the palms. A couple walks the water's edge, someone stands in the shallows, a
-catamaran sails under the sun, frigatebirds wheel overhead; green fluted mountains rise inland and a worn crater
-headland lies across the bay, all in the evening haze.
+in planters, cottages back among the palms. A couple strolls the water's edge, someone stands in the shallows, a
+boy runs down after the wash as it draws back and up away from it as it comes in, a barman works the bar with two
+at it; a catamaran sails under the sun, big dark birds sit on the palm tops and go up now and then to soar over
+the beach; green fluted mountains rise inland and a worn crater headland lies across the bay, all in the haze.
 
-It is painted like Amberwood: every material is `unshaded` and lights itself off one low sun, and
+It is painted like Amberwood: most materials are `unshaded` and light themselves off one low sun, and
 `shaders/plumeria/common.gdshaderinc` holds that sun, the sky's colour in any direction (the sky, the sea's
 reflections and the haze on far things all use it, so they agree) and the surf's clock. The ground and the sea are
 grids laid along the curving shore (`Plumeria.shore_z`); the surf is shaped in the sea's vertex shader and the wash
 drawn in the land's. Props are built from code into a few merged meshes (`mesh_kit.gd`), palms by
-`palm_builder.gd` (two meshes for the near ones, two plainer for the far), the little lights as one MultiMesh,
-the torches GameCommon's fire (`scripts/fire.gd`, lights off). Shadows are long soft quads laid on the sand.
+`palm_builder.gd` (two meshes for the near ones, two plainer for the far), the little lights as one MultiMesh.
+Shadows are long soft quads laid on the sand.
+
+GameCommon's parts in it:
+
+| Part | Component |
+| --- | --- |
+| The beach in front of the club | `godot/sand` (`SandGround`, `Plumeria.SAND_RECT`): the people leave prints in it. Lit by the engine (the dusky ambient light, the low sun barely). The land mesh draws the wet sand and the wash over it and fades into it at its edges |
+| The people | `godot/character-controller` (`Figure`, `CharacterLook`, the low-detail model) and `godot/driven-boy` (the boy in the wash, steered on the surf's clock) |
+| The birds | `godot/crow` (`CorvidFlock`): ravens at twice their size, perched on the palm tops, soaring with `circle_over` |
+| The hibiscus bushes | `godot/painted-woodland` (`Woodland.add_bushes`, a kind of its own, `Plumeria.HIBISCUS`), with flowers of this place's in them |
+| The torches | `godot/fire` (lights off) |
+
+Kept as this place's own: the sea and its surf (`godot/water` is a level box of matte water with no breaking
+waves, no sky in it and no clock to keep with the sound); the sky (`Woodland.sky` is an autumn afternoon's; this
+one has the sun's disc, sunset bars and stars and shares its colours with the sea and haze); the palms and the
+plumeria trees (no component has a palm).
 
 Sound (`scripts/plumeria/sound.gd`), baked at start-up: the surf on a 24 s round of three waves (a crash, white
 water rolling in, the wash, a fizzing draw-back) whose start is handed to the sea and sand shaders so each crash is
 heard as it is seen; palms rustling; a soft torch crackle; and now and then a few strummed ukulele chords
-(Karplus-Strong). No volume is changed while they play. About 245k triangles and 30 draw calls any way you look,
-built in about 1.3 s (2026-10-26).
+(Karplus-Strong). No volume is changed while they play. About 330k triangles and 35 draw calls any way you look,
+built in about 1.8 s (2026-10-26).
 
 ## How it is made
 

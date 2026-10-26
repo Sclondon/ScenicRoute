@@ -2,17 +2,30 @@
 // lee; wet sand by the water that mirrors the sky and the sun; the wash running up it in a thin sheet with
 // lace at its edge, then sliding back), the grass behind it, and the green fluted mountains inland
 // catching the last pink light. COLOR: r grass, g mountainside.
+// Inside `sand_rect` (x0, z0, x1, z1) the beach is GameCommon's sand (a SandGround): there this draws only the
+// wet sand and the wash, the grass and the far edges, a few centimetres over the sand, and lets the sand show
+// through elsewhere, in ragged patches where the two meet.
 shader_type spatial;
 render_mode unshaded, fog_disabled;
 
 #include "res://shaders/plumeria/common.gdshaderinc"
 
+uniform vec4 sand_rect = vec4(0.0);
+
 varying vec3 world_pos;
 varying vec3 world_normal;
 varying vec4 tint;
 
+bool in_sand(vec2 p) {
+	return p.x > sand_rect.x && p.x < sand_rect.z && p.y > sand_rect.y && p.y < sand_rect.w;
+}
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	if (in_sand(world_pos.xz)) {
+		VERTEX.y += 0.05;
+		world_pos.y += 0.05;
+	}
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	tint = COLOR;
 }
@@ -69,6 +82,16 @@ void fragment() {
 	// bare red earth showing on the steepest walls
 	mount = mix(mount, vec3(0.55, 0.32, 0.25) * (0.6 + ml * 0.6), smoothstep(0.55, 0.3, n.y) * 0.35 * flute);
 	col = mix(col, mount, tint.g);
+	if (in_sand(p)) {
+		// what this keeps over the sand: the wet and the wash, the grass, and all of it near the edges
+		float inner = smoothstep(0.0, 25.0, min(p.x - sand_rect.x, sand_rect.z - p.x)) * smoothstep(0.0, 6.0, sand_rect.w - p.y);
+		float keep = max(max(wet * 1.3, under), max(tint.r * 1.6, tint.g));
+		keep = max(keep, 1.0 - inner);
+		float ragged = vnoise(p * 1.1) * 0.6 + vnoise(p * 4.5) * 0.4;
+		if (keep < ragged * 0.9 + 0.05) {
+			discard;
+		}
+	}
 	col = haze(col, world_pos, CAMERA_POSITION_WORLD, 0.0027);
 	ALBEDO = col;
 }

@@ -6,12 +6,14 @@ extends Node3D
 ## out over the beach and sway; string lights sag between poles over you and back to the thatched tiki bar
 ## behind (its bottles, glass-float lanterns, a carved tiki). Loungers and closed umbrellas, an outrigger
 ## canoe pulled up on the sand, surfboards on a rack, plumeria trees and hibiscus in planters; a couple
-## walking the water's edge, someone standing in the shallows, a catamaran out under the sun; green fluted
-## mountains inland and a headland across the bay, both in the evening haze.
+## walking the water's edge, someone standing in the shallows, a boy chasing the wash, a barman and two at the
+## bar, a catamaran out under the sun, big birds soaring off the palm tops; green fluted mountains inland and a
+## headland across the bay, both in the evening haze.
 ##
-## Everything is built here from code and seeded. The look is painted, not lit: every material lights itself
-## off `SUN_DIR` (shaders/plumeria/common.gdshaderinc holds the same sun, the sky's colours and the haze), and
-## things far off fade into the sky's own colour that way.
+## Everything is built here from code and seeded. The look is painted, not lit: this place's own materials light
+## themselves off `SUN_DIR` (shaders/plumeria/common.gdshaderinc holds the same sun, the sky's colours and the
+## haze), and things far off fade into the sky's own colour that way. GameCommon's parts are used where one fits
+## (see README): the sand of the beach, the people, the birds, the hibiscus bushes, the torches' flames.
 
 const MeshKit := preload("res://scripts/plumeria/mesh_kit.gd")
 const PalmBuilder := preload("res://scripts/plumeria/palm_builder.gd")
@@ -25,7 +27,6 @@ const PALM := preload("res://shaders/plumeria/palm.gdshader")
 const GLOW := preload("res://shaders/plumeria/glow.gdshader")
 const BLOOM := preload("res://shaders/plumeria/bloom.gdshader")
 const SHADOW := preload("res://shaders/plumeria/shadow.gdshader")
-const BIRDS := preload("res://shaders/plumeria/birds.gdshader")
 const FireScript := preload("res://scripts/fire.gd")
 const ITALIC := preload("res://fonts/LibreBaskerville-Italic.ttf")
 
@@ -37,6 +38,11 @@ const SEA_Y := -0.45
 const DECK := 2.1
 ## The front of the tiki bar behind you.
 const BAR_Z := 7.6
+## Where the beach is GameCommon's sand (x, z, width, depth).
+const SAND_RECT := Rect2(-140.0, -38.0, 280.0, 58.0)
+## A hibiscus, as a kind of painted-woodland bush: broad glossy leaves (the beech's outline), deep green.
+const HIBISCUS := {"shape": 0.0, "leaves": 260, "leaf": 0.12, "size": Vector2(0.5, 0.42),
+	"colors": {"color_a": Color(0.2, 0.4, 0.14), "color_b": Color(0.12, 0.3, 0.12), "color_dark": Color(0.04, 0.09, 0.04)}}
 ## Where you face on arriving: out to sea, the sun a little left of the middle.
 const VIEW := {"look": Vector2(3.0, -2.0)}
 
@@ -58,6 +64,13 @@ var surf_materials: Array[ShaderMaterial] = []
 var walkers: Array = []
 ## Where no palm may grow (the cottages).
 var clear_spots: Array[Vector2] = []
+var sand: SandGround
+var boy: DrivenBoy
+var birds: CorvidFlock
+var palm_tops: Array[Vector3] = []
+var _birds_up := 20.0
+## Where the hibiscus bushes stand (painted-woodland's bushes, in leaves of their own).
+var bushes: Array = []
 
 
 static func view_position() -> Vector3:
@@ -102,6 +115,7 @@ func _ready() -> void:
 	rng.seed = 808
 	_environment()
 	_land()
+	_sand()
 	_sea()
 	_deck()
 	_bar()
@@ -139,8 +153,8 @@ func _environment() -> void:
 	env.sky = Sky.new()
 	env.sky.sky_material = _mat(SKY)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.45, 0.6)
-	env.ambient_light_energy = 0.7
+	env.ambient_light_color = Color(0.74, 0.55, 0.52)
+	env.ambient_light_energy = 1.2
 	env.glow_enabled = true
 	env.glow_intensity = 0.5
 	env.glow_bloom = 0.06
@@ -223,10 +237,51 @@ func _land() -> void:
 		var m := mountain(x, z)
 		var hill := smoothstep(3.0, 30.0, m)
 		return Color(smoothstep(30.0, 42.0, dd) * (1.0 - hill), hill, 0.0))
-	var mat := _mat(LAND)
+	var mat := _mat(LAND, {"sand_rect": Vector4(SAND_RECT.position.x, SAND_RECT.position.y, SAND_RECT.end.x, SAND_RECT.end.y)})
 	surf_materials.append(mat)
 	var mi := _add(mesh, mat)
 	mi.custom_aabb = AABB(Vector3(-900, -10, -700), Vector3(1800, 300, 1400))
+
+
+# The beach in front of the club is GameCommon's sand (it takes the prints of the people walking on it); the
+# land mesh draws the wet sand and the wash over it, the grass behind it, and the beach beyond it either way,
+# raised a little over it and fading into it with ragged edges (land.gdshader's `sand_rect`)
+func _sand() -> void:
+	# The sand is lit by the engine: the low sun hardly reaches level ground, so the dusky violet ambient light
+	# lights it, as it is at sundown. (Sand.sky is left black: on this renderer the ambient light is not taken
+	# off where it is set, and the two together burnt the sand white.) Statics: set before any sand is made.
+	Sand.quality = 1
+	Sand.sky = Color.BLACK
+	Sand.sun_gain = 1.5
+	var ground := SandGround.new()
+	var mid := SAND_RECT.get_center()
+	ground.position = Vector3(mid.x, 0.0, mid.y)
+	ground.half = SAND_RECT.size * 0.5
+	ground.cell = 2.0
+	ground.colour = Color(0.96, 0.8, 0.62)
+	ground.ripples = 0
+	ground.dent_cell = 0.1
+	ground.casts_shadow = false
+	ground.auto_quality = false
+	ground.clip = true
+	ground.beyond = 0.0
+	ground.height = func(x: float, z: float) -> float: return height(x + mid.x, z + mid.y)
+	add_child(ground)
+	# damp sand down by the water, where the people walk
+	for i in 41:
+		var x := lerpf(SAND_RECT.position.x, SAND_RECT.end.x, i / 40.0)
+		ground.paint(Sand.Kind.DAMP, Vector2(x, shore_z(x) + 2.0), 6.0, 1.0, 3.0)
+	var m := ground.material()
+	m.set_shader_parameter(&"haze", Color(0.98, 0.7, 0.58, 0.004))
+	m.set_shader_parameter(&"sparkle", 1.2)
+	m.set_shader_parameter(&"glint", Color(1.0, 0.8, 0.55))
+	# the prints are kept round the water's edge in front of the deck, where the people walk
+	var focus := Node3D.new()
+	focus.position = Vector3(-6.0, 0.0, shore_z(-6.0) + 3.0)
+	add_child(focus)
+	ground.focus = focus
+	sand = ground
+
 
 
 func _sea() -> void:
@@ -535,18 +590,11 @@ func _planter(at: Vector3, size: float) -> void:
 
 func _hibiscus(at: Vector3, size: float) -> void:
 	_planter(at, size)
-	var c := at + Vector3(0, size * 0.65 + 0.42, 0)
-	for k in 70:
-		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.4, 1), rng.randf_range(-1, 1)).normalized()
-		var p := c + dir * Vector3(0.55, 0.45, 0.55) * rng.randf_range(0.4, 1.0)
-		var up := (dir + Vector3(rng.randf_range(-0.5, 0.5), 0.4, rng.randf_range(-0.5, 0.5))).normalized()
-		var right := up.cross(dir).normalized()
-		if right.length() < 0.1:
-			right = Vector3.RIGHT
-		blooms.card(p, right * 0.08, up * 0.1, Color(rng.randf_range(0.85, 1.15), 1, 1), Vector2(1, 0))
+	var c := at + Vector3(0, size * 0.64 + 0.45 * size * 1.2, 0)
+	bushes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * size * 1.2), at + Vector3(0, size * 0.64, 0)))
 	for k in 9:
 		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.1, 1), rng.randf_range(-1, 1)).normalized()
-		_flower(c + dir * Vector3(0.58, 0.48, 0.58), dir + Vector3(0, 0.3, 0), 0.09, 3.0, Color.WHITE)
+		_flower(c + dir * Vector3(0.42, 0.36, 0.42) * size * 1.2, dir + Vector3(0, 0.3, 0), 0.09, 3.0, Color.WHITE)
 
 
 # A plumeria: a grey candelabra of thick forked branches with a rosette of long leaves at each tip and
@@ -806,10 +854,10 @@ func shadows_for(foot: Vector3, tall: float, wide: float) -> void:
 	for i in segs + 1:
 		var u := float(i) / segs
 		var p := foot + dir * len * u
-		p.y = (DECK if on_deck else height(p.x, p.z)) + 0.03
+		p.y = (DECK if on_deck else height(p.x, p.z)) + 0.07
 		var row := [
-			shadows.vert(p - side * wide * 0.5, Vector3.UP, Color(1, 1, 1, 0.38), Vector2(0, u)),
-			shadows.vert(p + side * wide * 0.5, Vector3.UP, Color(1, 1, 1, 0.38), Vector2(1, u)),
+			shadows.vert(p - side * wide * 0.5, Vector3.UP, Color(1, 1, 1, 0.3), Vector2(0, u)),
+			shadows.vert(p + side * wide * 0.5, Vector3.UP, Color(1, 1, 1, 0.3), Vector2(1, u)),
 		]
 		if i > 0:
 			shadows.quad(prev[0], prev[1], row[1], row[0])
@@ -820,18 +868,11 @@ func _planters() -> void:
 	# beds of hibiscus and ti along the sand in front of the deck
 	for x in [-5.2, -3.6, 3.6, 5.2]:
 		var z := -2.9 - rng.randf() * 0.4
-		var c := Vector3(x, height(x, z) + 0.35, z)
-		for k in 40:
-			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.2, 1), rng.randf_range(-1, 1)).normalized()
-			var p := c + dir * Vector3(0.7, 0.4, 0.45) * rng.randf_range(0.3, 1.0)
-			var up := (dir + Vector3(0, 0.6, 0)).normalized()
-			var right := up.cross(dir).normalized()
-			if right.length() < 0.1:
-				right = Vector3.RIGHT
-			blooms.card(p, right * 0.09, up * 0.11, Color(1, 1, 1), Vector2(1, 0))
+		var c := Vector3(x, height(x, z) + 0.45, z)
+		bushes.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.4, 1.0, 1.1)), Vector3(x, height(x, z) + 0.02, z)))
 		for k in 5:
 			var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(0.1, 1), rng.randf_range(-1, 1)).normalized()
-			_flower(c + dir * Vector3(0.72, 0.42, 0.48), dir, 0.09, 3.0, Color.WHITE)
+			_flower(c + dir * Vector3(0.6, 0.36, 0.46), dir, 0.09, 3.0, Color.WHITE)
 
 
 # --- palms ---
@@ -857,7 +898,7 @@ func _palms() -> void:
 	for h in heroes:
 		var base: Vector3 = h[0]
 		base.y = height(base.x, base.z) - 0.1
-		PalmBuilder.build(trunks, fronds, base, h[1], (h[2] as Vector3).normalized(), h[3], rng)
+		palm_tops.append(PalmBuilder.build(trunks, fronds, base, h[1], (h[2] as Vector3).normalized(), h[3], rng))
 		shadows_for(base, 6.0, 0.5)
 	# along the beach either way, and the groves behind
 	var placed := 0
@@ -956,90 +997,154 @@ func _distant() -> void:
 
 
 # --- people ---
+# GameCommon's figures (the character controller's rig, turned out by CharacterLook): a couple strolling the
+# water's edge, someone standing in the shallows, a barman and two at the bar; and a boy (DrivenBoy) running
+# in and out of the wash. On the sand their feet leave prints.
 
-func _person(skin: Color, top: Color, bottom: Color, hair: Color, long_hair: bool) -> MeshKit:
-	var k := MeshKit.new()
-	for s in [-1.0, 1.0]:
-		k.cylinder(Vector3(s * 0.09, 0.88, 0), Vector3(s * 0.09, 0.05, 0.02), 0.075, 0.05, 5, skin, Vector2(0, s))
-		k.cylinder(Vector3(s * 0.21, 1.4, 0), Vector3(s * 0.25, 0.82, 0), 0.045, 0.035, 5, skin, Vector2(0, s * 2.0))
-	k.blob(Transform3D(Basis(), Vector3(0, 0.92, 0)), Vector3(0.17, 0.15, 0.12), bottom, 4, 7)
-	k.blob(Transform3D(Basis(), Vector3(0, 1.2, 0)), Vector3(0.18, 0.27, 0.12), top, 5, 8)
-	k.blob(Transform3D(Basis(), Vector3(0, 1.63, 0)), Vector3(0.09, 0.115, 0.1), skin, 5, 7)
-	k.blob(Transform3D(Basis(), Vector3(0, 1.68 if not long_hair else 1.6, 0.02)), Vector3(0.1, 0.09 if not long_hair else 0.17, 0.1), hair, 4, 7)
-	return k
+## Someone of the boy's model, grown to `size`, in `outfit` with `colours` over a made-up look.
+func _figure(seed: int, sex: int, outfit: String, colours: Dictionary, size: float, at: Vector3, yaw: float) -> Figure:
+	var look := CharacterLook.random(seed, sex)
+	look["outfit"] = outfit
+	look["cap"] = false
+	var c: Dictionary = look["colours"]
+	c.merge(colours, true)
+	var f := Figure.new()
+	f.size = size
+	f.walk_speed = 0.85
+	f.dusty = false
+	f.position = at
+	# (the plainer model: they are seen from some way off)
+	var was := Settings.low_poly
+	Settings.low_poly = true
+	add_child(f)
+	Settings.low_poly = was
+	CharacterLook.apply(f.rig, look)
+	f.rig.scale = Vector3(size * float(look["build"]), size, size * float(look["build"]))
+	f.place(at, yaw)
+	return f
 
 
 func _people() -> void:
-	var a := _person(Color(0.62, 0.42, 0.3), Color(0.95, 0.9, 0.82), Color(0.25, 0.35, 0.5), Color(0.12, 0.08, 0.06), false)
-	var b := _person(Color(0.55, 0.36, 0.25), Color(0.9, 0.38, 0.4), Color(0.9, 0.38, 0.4), Color(0.1, 0.06, 0.04), true)
-	var c := _person(Color(0.5, 0.33, 0.22), Color(0.2, 0.55, 0.6), Color(0.3, 0.3, 0.32), Color(0.1, 0.07, 0.05), false)
-	var walk_a := _add(a.mesh(), _mat(LIT, {"stride": 0.55, "stride_phase": 0.0}))
-	var walk_b := _add(b.mesh(), _mat(LIT, {"stride": 0.55, "stride_phase": 2.2}))
-	var stand := _add(c.mesh(), _mat(LIT))
-	walkers.append({"node": walk_a, "from": -38.0, "to": 26.0, "d": 2.2, "speed": 0.9, "t": 0.0})
-	walkers.append({"node": walk_b, "from": -38.0, "to": 26.0, "d": 2.9, "speed": 0.9, "t": 0.6})
+	# something to stand on up on the deck (the sand is its own floor)
+	var floor_body := StaticBody3D.new()
+	var box := CollisionShape3D.new()
+	box.shape = BoxShape3D.new()
+	(box.shape as BoxShape3D).size = Vector3(15.0, 0.4, 17.2)
+	box.position = Vector3(0, DECK - 0.2, 6.4)
+	floor_body.add_child(box)
+	add_child(floor_body)
+	var F := CharacterLook.Sex.FEMALE
+	var M := CharacterLook.Sex.MALE
+	# the couple, walking the edge of the wash, there and back
+	var path := PackedVector3Array()
+	for i in 9:
+		var x := lerpf(-38.0, 26.0, i / 8.0)
+		path.append(Vector3(x, 0.0, shore_z(x) + 3.0))
+	var her := _figure(11, F, "dress", {"overalls": Color(0.95, 0.55, 0.5)}, 1.36, _on_sand(path[0] + Vector3(0, 0, 0.6)), PI * 0.5)
+	var him := _figure(23, M, "trousers", {"shirt": Color(0.95, 0.93, 0.86), "overalls": Color(0.3, 0.36, 0.48)}, 1.44, _on_sand(path[0] + Vector3(-0.2, 0, -0.1)), PI * 0.5)
+	walkers.append({"figure": her, "path": path, "at": 0, "step": 1, "offset": Vector3(0, 0, 0.6)})
+	walkers.append({"figure": him, "path": path, "at": 0, "step": 1, "offset": Vector3(0, 0, -0.1)})
+	# someone standing in the shallows, looking at the sun
 	var sx := 11.0
-	var sz := shore_z(sx) - 2.6
-	stand.position = Vector3(sx, height(sx, sz), sz)
-	stand.rotation.y = 0.3
-	walkers.append({"node": stand, "stand": true, "base": stand.position})
+	var still := _figure(37, M, "trousers", {"shirt": Color(0.25, 0.6, 0.62), "overalls": Color(0.85, 0.82, 0.74)}, 1.4,
+		_on_sand(Vector3(sx, 0, shore_z(sx) - 2.2)), PI)
+	still.face(still.position + SUN_DIR * 10.0)
+	# behind the bar, the barman in a flowered shirt, going up and down it
+	var bar_z := BAR_Z + 3.0
+	var barman := _figure(51, M, "trousers", {"shirt": Color(0.92, 0.42, 0.3), "overalls": Color(0.85, 0.8, 0.68)}, 1.4,
+		Vector3(-1.5, DECK, bar_z), PI)
+	walkers.append({"figure": barman, "path": PackedVector3Array([Vector3(-2.6, DECK, bar_z), Vector3(0.4, DECK, bar_z),
+		Vector3(2.4, DECK, bar_z), Vector3(-0.6, DECK, bar_z)]), "at": 0, "step": 1, "offset": Vector3.ZERO,
+		"pause": 0.0, "face": Vector3(0, DECK, BAR_Z)})
+	# two at the bar, standing at it
+	var front := BAR_Z + 1.8 - 0.55
+	var a := _figure(63, F, "skirt", {"shirt": Color(0.98, 0.95, 0.9), "overalls": Color(0.2, 0.45, 0.55)}, 1.32, Vector3(-2.3, DECK, front), 0.0)
+	var b := _figure(77, M, "suit", {"jacket": Color(0.9, 0.86, 0.75), "overalls": Color(0.9, 0.86, 0.75)}, 1.42, Vector3(-1.6, DECK, front - 0.1), 0.0)
+	a.face(Vector3(-1.6, DECK, front))
+	b.face(Vector3(-2.3, DECK, front + 0.6))
+	# and a boy chasing the wash up and down the sand
+	boy = DrivenBoy.make()
+	boy.position = _on_sand(Vector3(-4.0, 0, shore_z(-4.0) + 4.0))
+	(boy.get_node(^"Rig") as CharacterRig).low_poly = true
+	add_child(boy)
+	CharacterLook.apply(boy.get_node(^"Rig") as CharacterRig, CharacterLook.dressed({"face": "sculpt", "hair": "curls",
+		"outfit": "breeches", "cap": false, "colours": {"shirt": Color(0.95, 0.85, 0.4), "overalls": Color(0.3, 0.5, 0.75),
+		"skin": CharacterLook.SKINS[4], "hair": CharacterLook.HAIR_COLOURS[1]}}))
 	_birds()
 
 
-# Frigatebirds wheeling high over the beach
+func _on_sand(p: Vector3) -> Vector3:
+	return Vector3(p.x, height(p.x, p.z) + 0.1, p.z)
+
+
+# Birds wheeling high over the beach: GameCommon's ravens, grown to the size of frigatebirds, perched on the
+# tops of the palms and going up now and then to soar in circles over the sand
 func _birds() -> void:
-	var mat := _mat(BIRDS)
-	for k in 5:
-		var kit := MeshKit.new()
-		var col := Color(0, 0, 0, rng.randf())
-		for s in [-1.0, 1.0]:
-			var root_le := kit.vert(Vector3(0, 0, -0.05), Vector3.UP, col, Vector2.ZERO, Vector2(0, 0))
-			var root_te := kit.vert(Vector3(0, 0, 0.3), Vector3.UP, col, Vector2.ZERO, Vector2(0, 0))
-			var elbow_le := kit.vert(Vector3(s * 0.55, 0.12, 0.05), Vector3.UP, col, Vector2.ZERO, Vector2(0.5, 0))
-			var elbow_te := kit.vert(Vector3(s * 0.55, 0.1, 0.3), Vector3.UP, col, Vector2.ZERO, Vector2(0.5, 0))
-			var tip := kit.vert(Vector3(s * 1.15, -0.04, 0.42), Vector3.UP, col, Vector2.ZERO, Vector2(1.0, 0))
-			kit.quad(root_le, elbow_le, elbow_te, root_te)
-			kit.tri(elbow_le, tip, elbow_te)
-			var t0 := kit.vert(Vector3(0, 0, 0.35), Vector3.UP, col)
-			var t1 := kit.vert(Vector3(s * 0.03, 0, 0.45), Vector3.UP, col)
-			var t2 := kit.vert(Vector3(s * 0.16, 0, 0.95), Vector3.UP, col)
-			kit.tri(t0, t1, t2)
-		kit.blob(Transform3D(Basis(), Vector3(0, 0, 0.12)), Vector3(0.06, 0.05, 0.42), col, 3, 5)
-		var mi := _add(kit.mesh(), mat)
-		walkers.append({"node": mi, "bird": true, "centre": Vector3(rng.randf_range(-30, 30), rng.randf_range(26, 42), rng.randf_range(-70, -35)),
-			"radius": rng.randf_range(14, 30), "speed": rng.randf_range(0.05, 0.09) * (1.0 if k % 2 == 0 else -1.0), "phase": rng.randf() * TAU})
+	birds = CorvidFlock.new()
+	birds.kind = CorvidBody.Kind.RAVEN
+	birds.count = 5
+	birds.flock_seed = 8
+	birds.size = 2.0
+	birds.circle_radius = 24.0
+	birds.circle_height = 30.0
+	birds.flight_speed = 9.0
+	birds.call_every = 9999.0
+	birds.cast_shadows = false
+	birds.low_poly = true
+	birds.view_range = 400.0
+	add_child(birds)
+	var perches := PackedVector3Array()
+	var faces := PackedVector3Array()
+	for top in palm_tops.slice(0, 6):
+		perches.append(top + Vector3(0, 0.45, 0))
+		faces.append(Vector3(rng.randf_range(-1, 1), 0, rng.randf_range(-1, 1)).normalized())
+	birds.set_perches(perches, faces, false)
+	birds.settle()
+
+
+func _physics_process(_delta: float) -> void:
+	if boy == null:
+		return
+	# the boy runs down after the wash as it draws back, and up away from it as it comes in
+	# (on the surf's own clock, as the shaders have it: see common.gdshaderinc's swash)
+	var t := fmod(Time.get_ticks_msec() / 1000.0, 3600.0) - float(surf_materials[0].get_shader_parameter(&"wave_t0"))
+	var s := fposmod(t - 0.45 * 8.0, 8.0) / 8.0
+	var wander := -4.0 + sin(t * 0.05) * 9.0
+	var down := s > 0.45 and s < 0.95
+	var target := Vector3(wander, 0, shore_z(wander) + (0.8 if down else 7.5))
+	boy.steer(_on_sand(target), DrivenBoy.Pace.JOG if down else DrivenBoy.Pace.RUN)
 
 
 func _process(delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
+	if birds and not birds.circling() and t > _birds_up:
+		birds.circle_over(Vector3(rng.randf_range(-20, 20), 0, rng.randf_range(-45, -25)), rng.randf_range(25.0, 45.0))
+		_birds_up = t + rng.randf_range(40.0, 70.0)
 	for w in walkers:
-		var node: Node3D = w.node
-		if w.has("bird"):
-			var a: float = t * w.speed + w.phase
-			var c: Vector3 = w.centre
-			var at: Vector3 = c + Vector3(cos(a), 0.0, sin(a)) * w.radius + Vector3(0, sin(t * 0.13 + w.phase) * 3.0, 0)
-			node.position = at
-			var ahead := Vector3(-sin(a), 0.0, cos(a)) * signf(w.speed)
-			node.look_at(at + ahead, Vector3.UP)
-			node.rotate_object_local(Vector3.FORWARD, 0.35 * signf(w.speed))
+		if w.has("figure"):
+			var f: Figure = w.figure
+			if f.is_going():
+				continue
+			if w.has("pause"):
+				# the barman stops a while at each place, facing the bar
+				if w.pause <= 0.0:
+					w.pause = rng.randf_range(3.0, 8.0)
+					f.face(Vector3(f.position.x, DECK, w.face.z))
+				w.pause -= delta
+				if w.pause > 0.0:
+					continue
+			var path: PackedVector3Array = w.path
+			var next: int = w.at + w.step
+			if next < 0 or next >= path.size():
+				w.step = -w.step
+				next = w.at + w.step
+			w.at = next
+			var goal: Vector3 = path[next] + w.offset
+			f.go_to(goal)
 			continue
+		var node: Node3D = w.node
 		if w.has("boat"):
 			node.position = Vector3(sin(t * 0.03) * 6.0, sin(t * 0.9) * 0.15, 0.0)
-			continue
-		if w.has("stand"):
-			node.rotation.z = sin(t * 0.7) * 0.02
-			continue
-		# up and down the water's edge, slowly, turning at each end
-		var span: float = w.to - w.from
-		var period: float = span / w.speed * 2.0
-		var u := fposmod(t / period + 0.3, 1.0)
-		var going := u < 0.5
-		var s := u * 2.0 if going else (1.0 - u) * 2.0
-		var x: float = lerpf(w.from, w.to, s) + float(w.t)
-		var z: float = shore_z(x) + float(w.d)
-		node.position = Vector3(x, height(x, z), z)
-		var ahead := shore_z(x + (0.5 if going else -0.5)) - shore_z(x)
-		node.look_at(node.position + Vector3(1.0 if going else -1.0, 0.0, ahead), Vector3.UP)
 
 
 # --- putting it together ---
@@ -1050,6 +1155,7 @@ func _commit() -> void:
 	_add(thatch.mesh(), _mat(THATCH))
 	_add(woven.mesh(), _mat(LIT, {"weave": 1.0}))
 	_add(blooms.mesh(), _mat(BLOOM))
+	Woodland.add_bushes(self, {"hibiscus": bushes}, SUN_DIR.normalized(), SUN_COLOR, {"hibiscus": HIBISCUS})
 	_add(shadows.mesh(), _mat(SHADOW))
 	# all the little lights at once
 	var mm := MultiMesh.new()
