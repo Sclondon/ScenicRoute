@@ -37,6 +37,8 @@ const FLOOR_RECT := Rect2(-6.0, -14.0, 12.0, 11.0)
 const BALL := Vector3(-1.6, 6.4, -8.0)
 const STAGE := Rect2(-5.5, -18.0, 11.0, 3.5)
 const STAGE_Y := 0.9
+## The render layer the moths (and only they) are on, for their lamps' lights.
+const MOTH_LAYER := 2
 
 ## Where you face on arriving: down over the floor to the DJ and the moth.
 const VIEW := {"look": Vector2(2.5, -9.0)}
@@ -73,6 +75,7 @@ func _ready() -> void:
 	_beams()
 	_ball()
 	_signs()
+	_bar_moths()
 	_commit()
 
 
@@ -389,8 +392,7 @@ func _banquette(side: float, y: float, z0: float, z1: float, col: Color) -> void
 	for tz in [mid - 0.7, mid + 0.7]:
 		lacquer.lathe(Vector3(tx, y, tz), PackedVector2Array([Vector2(0.25, 0.0), Vector2(0.05, 0.03), Vector2(0.04, 0.68),
 			Vector2(0.38, 0.7), Vector2(0.38, 0.74), Vector2(0.0, 0.75)]), 14, Color(0.2, 0.12, 0.2))
-		neon.prism(Vector3(tx, y + 0.75, tz), Vector3(tx, y + 0.9, tz), 0.06, 0.04, 8, Color(1.0, 0.6, 0.35))
-		halos.append([Vector3(tx, y + 0.86, tz), 0.9, Color(1.0, 0.45, 0.3) * 0.55, 0.0])
+		_candle(Vector3(tx, y + 0.75, tz))
 	# who sits there: one or two to a side of each table, facing the room
 	for tz in [mid - 1.0, mid - 0.35, mid + 0.4, mid + 1.05]:
 		if rng.randf() < 0.75:
@@ -536,12 +538,52 @@ func _crowd() -> void:
 		_people(Figures.seated(kind * 2), sat[kind], smat)
 
 
+# A candle in a ruby glass on a table: GameCommon's fire (Fire.candle), without its light (nothing here is
+# lit by the engine but the moths), and a warm glow round it
+func _candle(at: Vector3) -> void:
+	neon.prism(at, at + Vector3(0, 0.08, 0), 0.04, 0.045, 8, Color(0.55, 0.1, 0.14))
+	var flame := Fire.candle()
+	flame.light = false
+	flame.position = at + Vector3(0, 0.06, 0)
+	add_child(flame)
+	halos.append([at + Vector3(0, 0.1, 0), 0.8, Color(1.0, 0.45, 0.25) * 0.5, 0.0])
+
+
+# Moths round two of the lamps over the bar (GameCommon's insects). They are the one thing the engine lights:
+# each swarm has a warm light of its own, on a layer only the moths are on.
+func _bar_moths() -> void:
+	for lx in [-1.5, 3.0]:
+		var lamp := Vector3(lx, 4.42, 8.8)
+		var moths := InsectSwarm.new()
+		moths.kind = InsectLook.Kind.MOTH
+		moths.count = 9
+		moths.swarm_seed = int(lx * 10.0) + 40
+		moths.centre = lamp
+		moths.radius = 0.65
+		moths.spread_height = Vector2(-0.35, 0.4)
+		moths.speed = 1.3
+		moths.wingspan = Vector2(0.07, 0.1)
+		moths.varieties = Vector3(1.0, 0.25, 0.25)
+		moths.rest_share = 0.0
+		add_child(moths)
+		var mesh := moths.get_node_or_null("Insects") as VisualInstance3D
+		if mesh:
+			mesh.layers = MOTH_LAYER
+		var light := OmniLight3D.new()
+		light.light_color = Color(1.0, 0.7, 0.42)
+		light.light_energy = 2.5
+		light.omni_range = 2.2
+		light.light_cull_mask = MOTH_LAYER
+		light.shadow_enabled = false
+		light.position = lamp
+		add_child(light)
+
+
 # A tall round table to stand at, with a little lamp on it
 func _high_table(at: Vector3) -> void:
 	lacquer.lathe(at, PackedVector2Array([Vector2(0.24, 0.0), Vector2(0.22, 0.03), Vector2(0.03, 0.05), Vector2(0.03, 1.02),
 		Vector2(0.3, 1.04), Vector2(0.3, 1.08), Vector2(0.0, 1.09)]), 12, Color(0.2, 0.12, 0.2))
-	neon.prism(at + Vector3(0, 1.09, 0), at + Vector3(0, 1.2, 0), 0.045, 0.035, 8, Color(1.0, 0.55, 0.35))
-	halos.append([at + Vector3(0, 1.17, 0), 0.8, Color(1.0, 0.45, 0.3) * 0.5, 0.0])
+	_candle(at + Vector3(0, 1.09, 0))
 
 
 func _put(stand: Array, p: Vector3, yaw: float, style: float, energy: float) -> void:

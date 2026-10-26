@@ -55,6 +55,13 @@ clap on two and four, a rolling bassline and a soft chord stab over Am7, Fmaj7, 
 from up on the mezzanine through the room, as one 8-bar loop that wraps round without a seam; and a crowd's
 murmur under it. Nothing's volume changes while they play.
 
+From GameCommon (`sh kit.sh install godot/<name> <this folder>`): the candles on the tables are `godot/fire`'s
+`Fire.candle()` (with its light off), and moths flutter round two of the lamps over the bar (`godot/insects`,
+`creatures/insects/`). The moths are the one thing the engine lights: each swarm has a warm `OmniLight3D` whose
+cull mask is the moths' own render layer (`MOTH_LAYER` in velvet_moth.gd), so nothing else is touched by it. The crowd
+stays the place's own: GameCommon's character controller is a boy, lit by the engine, a body and a rig each, and
+cannot be a few hundred grown-ups dancing within the budget.
+
 ## The Plumeria Beach Club
 
 A Hawaiian beach club as the sun goes down (`scripts/plumeria/plumeria.gd`, id `plumeria`). You sit at the rail
