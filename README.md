@@ -30,6 +30,48 @@ their own voices (GameCommon's). (Made-up small birds, pure whistles, were taken
 
 `scripts/tickets.gd` is kept for later, for charging site tickets for a visit; nothing uses it now.
 
+## Caffè del Porto
+
+A seaside cafe on the Italian coast, mid-morning (`scripts/caffe_del_porto/`, `shaders/caffe_del_porto/`). You
+sit at a little marble table on the cafe's terrace (eye 1.2 m), an espresso, a cornetto, a glass of water and a
+bud vase in front of you, steam curling off the coffee, under a blue and cream striped awning whose scalloped hem
+flaps in the breeze. Over the green iron railing is a little harbour: wooden gozzi moored stern-to along the
+quays and lying to the breeze on their buoys, bobbing, one puttering about out past the breakwater and its red
+and white light; the sea glittering in a path out to the horizon, a ferry and two sails far out, gulls wheeling
+overhead. Pastel houses (ochre, terracotta, pink, pale yellow) with green shutters, little balconies and pots of
+geraniums line the quays and are stacked up the cliffs either side, among olives, umbrella pines and
+cypresses; a church with a rose window and an ochre bell tower with a majolica dome stands over the right quay.
+Behind you are the cafe's door with its bead curtain and the warm room inside, its windows, the chalk menu board
+and its painted name; beside it a lane of steps climbs into the town under an arch and lines of washing, with
+bougainvillea over its mouth and over the low white wall on the left; lemon trees in pots, a mint Vespa parked
+by the lane, people at the other tables and strolling the quays.
+
+The light is the engine's sun with its shadows, cut to two tones in each material's own `light()`
+(`light.gdshaderinc`): warm on the sun side, the cool blue ambient in the shade, a warm bounce under the awning.
+The houses are boxes painted by `house.gdshader` (windows, shutters open or shut, balconies, tiles), the land a
+height field (`height` in `caffe_del_porto.gd`: the quays, cliffs from the sea, the town climbing behind). The sea
+(`sea.gdshader`) is see-through where you look across it, and what shows through is the sky as it reflects
+(`sea_under.gdshader`, far below) and the boats, quay houses, church, breakwater and land turned upside down
+(`reflect.gdshader`, wavering and breaking up). Its glitter comes from a lower sun than the real one, so the
+path lies where you look.
+
+From GameCommon: the people on the quays are the character controller's `Figure`s dressed at random by
+`CharacterLook`, strolling on a few collision boxes laid over the quays (`godot/character-controller`); the lemon
+trees and olives are `godot/leafy-tree`, the umbrella pines and cypresses `godot/pine-tree`, all drawn in the
+place's own light (`lit.gdshader` with `tree` on: they sway by their UV2.y). Built here because nothing there
+fits: the sea (GameCommon's water is a matte pool seen close, read from the depth buffer under it; this is a sea
+to the horizon with a glitter path and reflections), the people sitting at the tables (the rig sits only on the
+ground, not on a chair), the gulls (no gull; the corvids are crows and ravens), the bougainvillea and geraniums.
+
+Sound (`scripts/caffe_del_porto/ambience.gd`, all made in code, baked a slice a frame over the first few seconds
+since the web build has no threads): the sea lapping at the quay with a gurgle as it drains back, a soft breeze, a
+murmur of people talking (formant-shaped buzz, muffled so it never makes words), and now and then a cup set down
+on its saucer, the church bell tolling a few strokes with an echo off the cliffs, a boat's engine puttering by.
+As in Amberwood, beds are baked with their swells in them and no volume changes while they play.
+
+Cost on a desktop at 450x800 (2026-10-26): built in about 1.2 s with the fade, 240-310k triangles and 65-140
+draw calls looking round (the people are most of the draws).
+
 ## The Velvet Moth
 
 A night club, late, the floor still full (`scripts/velvet_moth/`, `shaders/velvet_moth/`). You stand at the brass
