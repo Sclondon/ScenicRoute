@@ -27,6 +27,7 @@ var back_card: Control
 var _grid: GridContainer
 var _busy := false
 var _hinted := false
+var _words: Tween
 ## A place to open straight into, by id (tests set it before the scene starts).
 static var start_place := ""
 
@@ -213,6 +214,8 @@ func go(p: Dictionary) -> void:
 	# come up out of the dark, name the place, then say how to look about (the first time) and get out of the way
 	tw = create_tween()
 	tw.tween_property(paint, "shader_parameter/fade", 0.0, 1.6)
+	# free to leave once it is in view; the name comes and goes on its own
+	tw.tween_callback(func(): _busy = false)
 	tw.tween_property(title, "modulate:a", 1.0, 1.0)
 	if not _hinted:
 		tw.parallel().tween_property(hint, "modulate:a", 1.0, 1.0)
@@ -220,8 +223,7 @@ func go(p: Dictionary) -> void:
 	tw.tween_property(title, "modulate:a", 0.0, 1.8)
 	tw.parallel().tween_property(hint, "modulate:a", 0.0, 1.8)
 	_hinted = true
-	await tw.finished
-	_busy = false
+	_words = tw
 
 
 ## Back to the postcards.
@@ -232,6 +234,8 @@ func back() -> void:
 	var tw := create_tween()
 	tw.tween_property(paint, "shader_parameter/fade", 1.0, 0.5)
 	await tw.finished
+	if _words and _words.is_valid():
+		_words.kill()
 	_leave_place()
 	back_card.visible = false
 	title.modulate.a = 0.0
