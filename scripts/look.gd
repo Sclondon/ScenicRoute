@@ -18,7 +18,7 @@ var _time := 0.0
 func setup(at: Vector3, look: Vector2) -> void:
 	fov = 62.0
 	near = 0.08
-	far = 160.0
+	far = 700.0
 	position = at
 	home = look
 	_yaw = look.x

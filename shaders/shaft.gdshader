@@ -1,5 +1,6 @@
 // A shaft of sun slanting down through the canopy: a long card added over the scene, soft at its sides,
-// fading out at its ends, breathing as leaves pass across the sun, and gone when the camera is in it.
+// fading out at its ends, breathing as leaves pass across the sun, coming and going over half a minute
+// or so, and gone when the camera is in it.
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, fog_disabled;
 
@@ -22,6 +23,9 @@ void fragment() {
 	// streaks along the shaft, flickering
 	float streak = 0.6 + 0.4 * sin(UV.x * 23.0 + seed * 10.0 + sin(TIME * 0.4 + seed) * 2.0);
 	float breathe = 0.65 + 0.35 * sin(TIME * (0.3 + hash(seed) * 0.3) + seed * 5.0);
+	// each shaft comes and goes on its own slow clock, as cloud and leaves cross the sun
+	float come = 0.5 + 0.5 * sin(TIME * (0.06 + hash(seed + 1.0) * 0.07) + seed * 6.283);
+	breathe *= smoothstep(0.25, 0.75, come);
 	float near = smoothstep(2.0, 7.0, distance(world_pos, CAMERA_POSITION_WORLD));
 	// thin where it is seen face-on to its edge
 	vec3 n = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);

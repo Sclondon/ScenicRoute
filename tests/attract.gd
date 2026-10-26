@@ -1,5 +1,6 @@
 extends SceneTree
-## Plays the arcade preview: the wood coming up out of the dark, then a slow look round.
+## Plays the arcade preview: the wood coming up out of the dark, then a slow look round: the valley, the deer,
+## into the wood and back out.
 ## Record it with Movie Maker, with an override.cfg setting the window to 960x540 (the project overrides the size):
 ##   godot --path . --audio-driver Dummy --fixed-fps 30 --write-movie out.avi -s tests/attract.gd
 
@@ -30,6 +31,6 @@ func _run() -> void:
 	main.paint.set_shader_parameter("grain", 0.0)
 	await _pan(cam, Vector2(20, 12), Vector2(38, -6), 7.0)
 	await _pan(cam, Vector2(38, -6), Vector2(75, -10), 6.0)
-	await _pan(cam, Vector2(75, -10), Vector2(-5, 3), 8.0)
-	await _pan(cam, Vector2(-5, 3), Vector2(30, -4), 5.0)
+	await _pan(cam, Vector2(75, -10), Vector2(-60, 0), 9.0)
+	await _pan(cam, Vector2(-60, 0), Vector2(30, -6), 6.0)
 	quit()
