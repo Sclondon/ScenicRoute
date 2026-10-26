@@ -93,7 +93,7 @@ void fragment() {
 	float ang = hash(cell + 3.0) * 3.1416;
 	float rows = sin(dot(p, vec2(cos(ang), sin(ang))) * 3.0);
 	vec3 field = kind < 0.35 ? mix(plough, plough * 0.7, step(0.0, rows)) : (kind < 0.6 ? mix(meadow_dry, meadow_dry * 0.85, step(0.3, rows)) : grass);
-	grass = mix(grass, field, far * step(0.0, 1.0));
+	// (the far fields' patchwork is not used: the clearing is all grass)
 	litter = mix(litter, grass, open);
 
 	vec3 path = mix(dirt_dark, dirt, 0.55 + 0.45 * fbm(p * 1.7));

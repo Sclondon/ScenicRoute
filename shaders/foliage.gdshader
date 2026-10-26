@@ -2,7 +2,7 @@
 // Voronoi pattern is one leaf of the tree's own shape and shade, the outline ragged with strays, dark
 // twigs reaching out through the gaps.
 // Lit by hand, not by the engine: lighter on the side to the sun, glowing when the sun is behind it.
-// INSTANCE_CUSTOM: x size, y the leaf shape (whole part: 0 beech, 1 oak, 2 maple, 3 aspen) and hue (fraction: 0 gold .. rust),
+// INSTANCE_CUSTOM: x size, y the leaf (whole part: 0 beech, 1 oak, 2 maple, 3 aspen, 4 birch) and hue (fraction: 0 gold .. rust),
 // z how lit it is (0 deep inside the crown .. 1 out in the sun), w a seed.
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
@@ -14,6 +14,8 @@ uniform vec3 orange : source_color = vec3(0.84, 0.43, 0.13);
 uniform vec3 rust : source_color = vec3(0.52, 0.24, 0.10);
 uniform vec3 shade : source_color = vec3(0.17, 0.11, 0.07);
 uniform float leaf_scale = 11.0;
+// the real leaves (leaf_atlas.gd): beech, oak, maple, aspen, birch in a row
+uniform sampler2D leaf_atlas : filter_linear_mipmap, repeat_disable;
 // 0 leaves, 1 dry grass and bracken (blades instead of leaves)
 uniform float blades = 0.0;
 uniform float sway = 1.0;
@@ -87,9 +89,9 @@ void fragment() {
 		float r = length(p);
 		float ang = atan(p.y, p.x);
 		float edge = 0.7 + 0.24 * vnoise(vec2(ang * 1.6 + seed, seed)) + 0.06 * sin(ang * 13.0 + seed);
-		// the tree's own leaf: 0 pointed (beech), 1 lobed (oak), 2 pointed lobes (maple), 3 small and round (aspen)
+		// the tree's own leaf: 0 beech, 1 oak, 2 maple, 3 aspen, 4 birch
 		float shape = floor(custom.y);
-		float scale = leaf_scale * (shape < 0.5 ? 1.0 : (shape < 1.5 ? 0.85 : (shape < 2.5 ? 0.72 : 1.35)));
+		float scale = leaf_scale * (shape < 0.5 ? 1.0 : (shape < 1.5 ? 0.85 : (shape < 2.5 ? 0.72 : (shape < 3.5 ? 1.3 : 1.15))));
 		// one leaf per cell, at a slant of its own; where leaves overlap, the higher numbered one is in front.
 		// Leaves out past the clump's edge are fewer, so the outline is ragged with strays.
 		vec2 g = uv * scale + seed;
@@ -97,6 +99,7 @@ void fragment() {
 		vec2 gf = fract(g);
 		float front = -1.0;
 		float along = 0.0;
+		float vein = 0.0;
 		for (int j = -1; j <= 1; j++) {
 			for (int i = -1; i <= 1; i++) {
 				vec2 o = vec2(float(i), float(j));
@@ -104,23 +107,14 @@ void fragment() {
 				vec2 d = gf - (o + h);
 				float a = h.x * 6.283 + h.y * 3.0;
 				vec2 q = vec2(d.x * cos(a) + d.y * sin(a), -d.x * sin(a) + d.y * cos(a));
-				bool in_leaf;
-				float t;
-				if (shape < 0.5) {
-					t = q.x / 0.62;
-					in_leaf = abs(t) < 1.0 && abs(q.y) < 0.27 * (1.0 - t * t) * (1.0 + 0.3 * t);
-				} else if (shape < 1.5) {
-					t = q.x / 0.66;
-					float lobes = 0.74 + 0.26 * cos(t * 9.42);
-					in_leaf = abs(t) < 1.0 && abs(q.y) < 0.3 * sqrt(max(1.0 - t * t, 0.0)) * lobes * (0.7 + 0.3 * (t + 1.0) * 0.5);
-				} else if (shape < 2.5) {
-					t = length(q) / 0.5;
-					float pa = atan(q.y, q.x);
-					in_leaf = t < 0.6 + 0.4 * pow(abs(cos(pa * 2.5)), 1.6) && q.x > -0.35;
-				} else {
-					t = q.x / 0.4;
-					in_leaf = length(q * vec2(1.0, 1.15)) < 0.36 - 0.06 * max(t, 0.0);
+				// cut from the real leaf in the sheet: its tip along +q.x, a little over a cell long
+				vec2 lu = vec2(0.5 + q.y / 1.3, 0.5 - q.x / 1.3);
+				float t = 1.0 - lu.y * 2.0;
+				vec4 cut = vec4(0.0);
+				if (lu.x > 0.0 && lu.x < 1.0 && lu.y > 0.0 && lu.y < 1.0) {
+					cut = textureLod(leaf_atlas, vec2((shape + lu.x) / 5.0, lu.y), 1.0);
 				}
+				bool in_leaf = cut.a > 0.5;
 				vec2 leaf_uv = (gi + o + h - seed) / scale;
 				float lr = length((leaf_uv - 0.5) * 2.0);
 				bool kept = lr < edge || (lr < edge + 0.22 && hash2(gi + o + 5.0).x < 0.3);
@@ -129,6 +123,7 @@ void fragment() {
 					if (id > front) {
 						front = id;
 						along = clamp(t, -1.0, 1.0);
+						vein = 1.0 - cut.r;
 					}
 				}
 			}
@@ -150,7 +145,7 @@ void fragment() {
 		float side = dot(p, normalize(sun_on_card + vec2(0.0, 0.6))) * 0.5 + 0.5;
 		tone = lit * 0.6 + side * 0.4 - r * 0.3;
 		if (front >= 0.0) {
-			tone += (front - 0.5) * 0.4 + along * 0.08;
+			tone += (front - 0.5) * 0.4 + along * 0.08 - vein * 0.5;
 		} else {
 			tone = tone * 0.35 - 0.15;
 		}

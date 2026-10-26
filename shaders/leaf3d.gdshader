@@ -1,5 +1,5 @@
-// A real leaf on a bush (bush_builder.gd): a card cut to the kind's `shape` (0 pointed oval, 1 broad,
-// 2 a bracken frond with its leaflets, 3 a lobed oak leaf), shaded as the whole bush is round, darker in
+// A real leaf on a bush (bush_builder.gd): a card cut to a real leaf's shape (leaf_atlas.gd), or a bracken
+// frond with its leaflets, shaded as the whole bush is round, darker in
 // its middle, glowing when the sun is behind it. Stirs in the wind. Lit by hand like everything else.
 // UV x across the leaf, y along it. COLOR r the leaf's shade, g how lit (dark inside and low), b 1 for a stem.
 shader_type spatial;
@@ -10,7 +10,9 @@ uniform vec3 sun_color : source_color = vec3(1.0, 0.86, 0.55);
 uniform vec3 color_a : source_color = vec3(0.4, 0.35, 0.13);
 uniform vec3 color_b : source_color = vec3(0.6, 0.34, 0.1);
 uniform vec3 color_dark : source_color = vec3(0.12, 0.1, 0.05);
+// which leaf in leaf_atlas.gd's sheet (0 beech, 1 oak, 2 maple, 3 aspen, 4 birch), or -1 for a bracken frond
 uniform float shape = 0.0;
+uniform sampler2D leaf_atlas : filter_linear_mipmap, repeat_disable;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -35,11 +37,7 @@ void fragment() {
 		float t = p.y;
 		bool inside;
 		float rib = smoothstep(0.08, 0.0, abs(p.x));
-		if (shape < 0.5) {
-			inside = abs(p.x) < 0.95 * pow(max(1.0 - t * t, 0.0), 0.8) * (1.0 - 0.15 * t);
-		} else if (shape < 1.5) {
-			inside = abs(p.x) < 0.98 * sqrt(max(1.0 - t * t, 0.0)) * (1.0 - 0.3 * max(t, 0.0));
-		} else if (shape < 2.5) {
+		if (shape < -0.5) {
 			// a frond: a stalk, and leaflets off it in pairs, shorter towards the tip
 			float along = UV.y;
 			float f = fract(along * 11.0);
@@ -48,9 +46,10 @@ void fragment() {
 			inside = abs(p.x) < 0.07 || (abs(p.x) < leaflet && abs(f - 0.5 - abs(p.x) * 0.35) < 0.42);
 			rib = smoothstep(0.1, 0.0, abs(p.x));
 		} else {
-			float a = atan(p.x, p.y);
-			float len = length(p * vec2(1.25, 1.0));
-			inside = len < 0.8 + 0.18 * cos(a * 9.0) && t > -0.95;
+			// a real leaf from the sheet (leaf_atlas.gd), tip up the card
+			vec4 cut = texture(leaf_atlas, vec2((shape + UV.x) / 5.0, 1.0 - UV.y));
+			inside = cut.a > 0.5;
+			rib = (1.0 - cut.r) * 1.6;
 		}
 		if (!inside) {
 			discard;

@@ -1,8 +1,8 @@
 extends Node3D
-## Amberwood: the edge of an autumn wood at the golden hour, after Over the Garden Wall. A dirt path
-## runs along it; on one side (+X) the wood goes deep, dark trunks and crowns of gold and rust; on the
-## other the trees give out past a pumpkin patch onto rolling hills, with a stream winding down to a
-## pond, a field of corn and copses on the far rises. Leaves come down; shafts of sun come and go.
+## Amberwood: an endless autumn wood at the golden hour, after Over the Garden Wall. A dirt path wanders
+## off between dark trunks into the sun going down; crowns of gold and rust meet over it. Off through the
+## trees on one side (-X) is a clearing, ringed by the wood, gently rolling, where a stream runs down to a
+## pond, there is a patch of corn, and deer come. Leaves come down; shafts of sun come and go.
 ## Everything is built here from code and seeded, so it is the same place every visit.
 ##
 ## The look comes from painting, not lighting: almost every material lights itself by hand off
@@ -11,6 +11,7 @@ extends Node3D
 const TreeBuilder := preload("res://scripts/amberwood/tree_builder.gd")
 const BushBuilder := preload("res://scripts/amberwood/bush_builder.gd")
 const CornBuilder := preload("res://scripts/amberwood/corn_builder.gd")
+const LeafAtlas := preload("res://scripts/amberwood/leaf_atlas.gd")
 const Wildlife := preload("res://scripts/amberwood/wildlife.gd")
 const FOLIAGE := preload("res://shaders/foliage.gdshader")
 const BARK := preload("res://shaders/bark.gdshader")
@@ -29,33 +30,36 @@ const SUN_DIR := Vector3(0.18, 0.3, -1.0)
 const SUN_COLOR := Color(1.0, 0.85, 0.55)
 const FOG := Color(0.84, 0.7, 0.5)
 
-## The wood's extent along the path, and how far it goes in on the +X side.
+## The wood's extent along the path, and how far it goes on the +X side (past it, fog: the wood is endless).
 const NEAR_Z := 110.0
 const FAR_Z := -150.0
 const HALF_WIDTH := 46.0
+## How far the wood goes on the -X side, round the clearing.
+const LEFT_WIDTH := 105.0
 ## The ground: how far it goes each way from the path, and along it.
 const GROUND_RIGHT := 80.0
-const GROUND_LEFT := 420.0
-const GROUND_NEAR := 260.0
-const GROUND_FAR := -420.0
+const GROUND_LEFT := 150.0
+const GROUND_NEAR := 170.0
+const GROUND_FAR := -230.0
 
-## Where you stand: on the path at the wood's edge, by the pumpkin patch, looking out over the fence to
-## the pond and the hills. `look` is (yaw, pitch) in degrees, yaw 0 down the path (-Z), positive to the left.
+## Where you stand: on the path in the wood, by the pumpkin patch, the sun going down the path ahead and the
+## clearing glimpsed off through the trees to the left. `look` is (yaw, pitch) in degrees, yaw 0 down the path (-Z), positive to the left.
 const VIEW := {"z": -27.0, "side": 0.6, "eye": 1.6, "look": Vector2(16.0, -3.0)}
 ## Within this of where you stand, things are built in full (trees with roots, 3D bushes).
 const NEAR := 22.0
 const LOG_Z := -15.0
 const PATCH_Z := Vector2(-26.0, -40.0)
-## The middle of the gap in the wood out to the valley, along the path.
-const GAP_Z := -42.0
+## The clearing off in the wood: its middle (x, z) and its half-widths.
+const CLEARING := Vector2(-50.0, -50.0)
+const CLEARING_SIZE := Vector2(30.0, 36.0)
 ## The pond: its middle (x, z) and its half-widths.
-const POND := Vector2(-24.0, -48.0)
-const POND_SIZE := Vector2(8.5, 5.5)
-## The stream, from where it rises down to the pond.
-const STREAM: Array[Vector2] = [Vector2(-17, -16), Vector2(-20, -21),
-	Vector2(-23, -27), Vector2(-24.5, -35), Vector2(-24, -39.5), Vector2(-24, -44)]
-## The corn: a field on the rise past the pond (x, z, width, depth).
-const CORN_FIELD := Rect2(-74.0, -96.0, 26.0, 36.0)
+const POND := Vector2(-46.0, -52.0)
+const POND_SIZE := Vector2(8.0, 5.5)
+## The stream, from where it rises in the wood down into the clearing to the pond.
+const STREAM: Array[Vector2] = [Vector2(-16, -6), Vector2(-21, -14), Vector2(-27, -24),
+	Vector2(-33, -33), Vector2(-38, -40), Vector2(-42, -46), Vector2(-44, -49)]
+## The corn: a patch at the far side of the clearing (x, z, width, depth).
+const CORN_FIELD := Rect2(-62.0, -80.0, 18.0, 13.0)
 
 var rng := RandomNumberGenerator.new()
 var materials: Array[ShaderMaterial] = []
@@ -77,17 +81,18 @@ static func off_path(x: float, z: float) -> float:
 	return absf(x - path_x(z))
 
 
-## The one way out of the wood: on the -X side by the patch the trees give out, and the opening widens
-## as it goes out over the valley. 0..1 (1 inside it), from where across the path a point is.
-static func gap_at(x: float, z: float) -> float:
-	var lo := maxf(path_x(z) - x, 0.0)
-	var half := 15.0 + lo * 0.7
-	return 1.0 - smoothstep(half - 9.0, half, absf(z - GAP_Z))
+## The clearing: a wide glade off in the wood on the -X side, ringed by trees, where the stream runs down to
+## the pond and the deer come. 0..1 (1 out in it).
+static func clearing_at(x: float, z: float) -> float:
+	var d := Vector2((x - CLEARING.x) / CLEARING_SIZE.x, (z - CLEARING.y) / CLEARING_SIZE.y).length()
+	# a ragged edge, not a ring
+	d += 0.12 * sin(atan2(z - CLEARING.y, x - CLEARING.x) * 5.0 + 1.3) + 0.06 * sin(x * 0.3 + z * 0.2)
+	return 1.0 - smoothstep(0.8, 1.0, d)
 
 
-## How far out of the wood a point is, 0..1: only in the gap, past the trees along the path.
+## How far out of the wood a point is, 0..1: only in the clearing.
 static func open_at(x: float, z: float) -> float:
-	return smoothstep(5.0, 13.0, path_x(z) - x) * gap_at(x, z)
+	return clearing_at(x, z)
 
 
 static func view_position() -> Vector3:
@@ -96,31 +101,20 @@ static func view_position() -> Vector3:
 	return Vector3(x, height(x, z) + float(VIEW.eye), z)
 
 
-# The land before the water is cut into it
+# The land before the water is cut into it: the wood's floor rising gently away from the path, and the
+# clearing a broad, gently rolling hollow in it
 static func _raw_height(x: float, z: float) -> float:
 	var off := off_path(x, z)
 	var h := smoothstep(2.0, 14.0, off) * 1.1
 	h += sin(x * 0.21 + z * 0.13) * 0.35 * smoothstep(3.0, 10.0, off)
 	h += sin(x * 0.07 - z * 0.05 + 2.0) * 0.6 * smoothstep(5.0, 20.0, off)
 	h -= 0.08 * (1.0 - smoothstep(1.2, 2.2, off))
-	# a low rise where you stand, to see out over the patch and down to the pond
-	var knoll := Vector2(x - path_x(VIEW.z) - 1.5, (z - VIEW.z) * 0.8)
-	h += 2.3 * exp(-knoll.length_squared() / 30.0)
-	var open := open_at(x, z)
-	var wood := smoothstep(16.0, 34.0, off) * 2.5 + smoothstep(40.0, 80.0, off) * 7.0
-	# the land falls away from the wood's edge into a broad valley, where the stream and pond lie:
-	# steepest at the top, so from the edge you see down into it
-	var lo := path_x(z) - x
-	h -= (2.0 * smoothstep(3.0, 13.0, lo) + 6.5 * (1.0 - exp(-maxf(lo - 9.0, 0.0) / 6.0))) * (1.0 - smoothstep(50.0, 120.0, lo)) * gap_at(x, z)
+	h += smoothstep(16.0, 34.0, off) * 2.0 + smoothstep(40.0, 90.0, off) * 4.0
+	var open := clearing_at(x, z)
 	if open <= 0.0:
-		return h + wood
-	# rolling hills, growing as they go out, up to a far ridge
-	var d := maxf(path_x(z) - x - 5.0, 0.0)
-	var hills := (4.5 * sin(x * 0.033 + z * 0.011 + 0.5) + 3.5 * sin(z * 0.041 - x * 0.017 + 1.7)
-		+ 1.0 * sin((x + z) * 0.09 + 0.4)) * smoothstep(4.0, 40.0, d)
-	hills += (9.0 * sin(z * 0.013 + x * 0.007) + 7.0) * smoothstep(50.0, 180.0, d)
-	hills += smoothstep(120.0, 320.0, d) * 32.0
-	return h + lerpf(wood, hills, open)
+		return h
+	var floor := 0.4 + 1.2 * sin(x * 0.07 + z * 0.045) + 0.8 * sin(z * 0.09 - x * 0.05 + 1.2)
+	return lerpf(h, floor, open)
 
 
 static func _pond_d(x: float, z: float) -> float:
@@ -174,7 +168,7 @@ static func height(x: float, z: float) -> float:
 		h = lerpf(h, flat, smoothstep(1.7, 1.15, pd))
 		h -= 1.1 * smoothstep(1.05, 0.45, pd)
 	# the stream: a little valley of its own, with its channel down the middle
-	if x < -2.0 and x > -38.0 and z < 23.0 and z > -60.0:
+	if x < -10.0 and x > -50.0 and z < 0.0 and z > -58.0:
 		var s := stream_at(x, z)
 		if s.x < 8.0:
 			var bed := stream_bed(s.y) + 0.15
@@ -211,6 +205,8 @@ func _mat(shader: Shader, params := {}) -> ShaderMaterial:
 	m.shader = shader
 	m.set_shader_parameter("sun_dir", SUN_DIR.normalized())
 	m.set_shader_parameter("sun_color", Vector3(SUN_COLOR.r, SUN_COLOR.g, SUN_COLOR.b))
+	if shader in [FOLIAGE, LEAF, LEAF3D]:
+		m.set_shader_parameter("leaf_atlas", LeafAtlas.texture())
 	for k in params:
 		m.set_shader_parameter(k, params[k])
 	materials.append(m)
@@ -232,7 +228,7 @@ func _environment() -> void:
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	env.fog_light_color = FOG
-	env.fog_density = 0.011
+	env.fog_density = 0.016
 	env.fog_sun_scatter = 0.6
 	env.fog_sky_affect = 0.45
 	env.fog_height = -9.0
@@ -285,7 +281,7 @@ func _ground() -> void:
 			var wet := 0.0
 			if gx < -4.0:
 				wet = smoothstep(1.6, 1.0, _pond_d(gx, gz))
-				if gx > -36.0 and gz < 20.0 and gz > -58.0:
+				if gx > -50.0 and gx < -10.0 and gz < 0.0 and gz > -58.0:
 					wet = maxf(wet, smoothstep(1.8, 0.7, stream_at(gx, gz).x))
 			var field := 1.0 if CORN_FIELD.grow(1.0).has_point(Vector2(gx, gz)) else 0.0
 			colors[j * w + i] = Color(wet, field, open_at(gx, gz))
@@ -387,7 +383,7 @@ func _clear_of_props(x: float, z: float, r: float) -> bool:
 	if x < px - 3.0:
 		if _pond_d(x, z) < 1.3 + r / POND_SIZE.y:
 			return false
-		if x > -38.0 and z < 22.0 and z > -60.0 and stream_at(x, z).x < 1.6 + r:
+		if x > -50.0 and x < -10.0 and z < 0.0 and z > -58.0 and stream_at(x, z).x < 1.6 + r:
 			return false
 		if CORN_FIELD.grow(r).has_point(Vector2(x, z)):
 			return false
@@ -436,8 +432,8 @@ func _variant(kind: String, seed: int, shape_override := {}) -> Dictionary:
 	shape.merge(shape_override, true)
 	shape.lite = true
 	var lite := builder.build(r, shape)
-	# its leaves: oaks lobed, aspens small and round, the rest pointed like beech or maple
-	var leaf: int = {"oak": 1, "aspen": 3}.get(kind, 0 if seed % 3 != 0 else 2)
+	# its leaves (leaf_atlas.gd): oaks' and aspens' own, the rest beech, maple or birch
+	var leaf: int = {"oak": 1, "aspen": 3}.get(kind, [0, 2, 4][seed % 3])
 	return {"kind": kind, "full": full, "lite": lite, "crowns": crowns, "near": [], "far": [], "bare": shape.bare, "leaf": leaf}
 
 
@@ -454,12 +450,11 @@ func _trees_and_leaves() -> void:
 	var bark := _mat(BARK, {"moss": 0.6})
 	var birch_bark := _mat(BARK, {"birch": 1.0})
 	var view := view_position()
-	# trees on a jittered grid, thick at the path's edges, none on it; on the open side only a row
-	# along the path, and the odd one out on the hills
+	# trees on a jittered grid, thick at the path's edges, none on it, out to the clearing and round it
 	var step := 2.7
 	var z := NEAR_Z
 	while z > FAR_Z:
-		var x := -HALF_WIDTH
+		var x := -LEFT_WIDTH
 		while x < HALF_WIDTH:
 			var tx := x + rng.randf_range(-1.1, 1.1)
 			var tz := z + rng.randf_range(-1.1, 1.1)
@@ -468,28 +463,20 @@ func _trees_and_leaves() -> void:
 			var keep := 0.85 if off < 6.0 else (0.55 if off < 16.0 else (0.35 if off < 30.0 else 0.25))
 			var open := open_at(tx, tz)
 			keep *= 1.0 - open * 0.97
+			# a thick ring of trees round the clearing
+			var cd := Vector2((tx - CLEARING.x) / CLEARING_SIZE.x, (tz - CLEARING.y) / CLEARING_SIZE.y).length()
+			keep = maxf(keep, 0.7 * exp(-pow((cd - 1.12) / 0.18, 2.0)))
 			var far := Vector2(tx - view.x, tz - view.z).length()
 			if far > 55.0:
 				keep *= 0.55
 			if off < 2.4 or rng.randf() > keep or not _clear_of_props(tx, tz, 1.0):
 				continue
-			# keep the view out over the valley open (the old oaks frame it)
+			# thinner between you and the clearing, so it shows through the trunks
 			var bearing := rad_to_deg(atan2(view.x - tx, view.z - tz))
-			if far < 6.0 or (path_x(tz) - tx > 2.0 and far < 40.0 and bearing > 12.0 and bearing < 100.0):
+			if far < 6.0 or (path_x(tz) - tx > 2.0 and far < 30.0 and bearing > 35.0 and bearing < 95.0 and rng.randf() < 0.6):
 				continue
 			_plant(variants, by_kind, _kind_at(tx, tz, off), tx, tz, off, far)
 		z -= step
-	# copses on the far rises
-	for c in 14:
-		var d := rng.randf_range(50.0, 300.0)
-		var cz := view.z + rng.randf_range(-260.0, 140.0)
-		var cx := path_x(cz) - 8.0 - d
-		for t in rng.randi_range(4, 11):
-			var tx := cx + rng.randf_range(-9.0, 9.0)
-			var tz := cz + rng.randf_range(-9.0, 9.0)
-			if not _clear_of_props(tx, tz, 2.0):
-				continue
-			_plant(variants, by_kind, "oak" if rng.randf() < 0.6 else "tall", tx, tz, 40.0, 999.0)
 	_hero_oaks(variants)
 	for v in variants:
 		for lod in ["near", "far"]:

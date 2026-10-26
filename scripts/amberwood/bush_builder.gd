@@ -8,18 +8,18 @@ extends RefCounted
 ## Each card has UV across (x) and along (y) the leaf, NORMAL out from the bush's middle, and COLOR:
 ## r its own shade between the kind's two colours, g how lit it is (dark inside and low), b 1 for stems.
 
-## The kinds: leaf shape (leaf3d.gdshader's `shape`), how many leaves and how long, the bush's half
+## The kinds: leaf (leaf3d.gdshader's `shape`: leaf_atlas.gd's 0 beech, 1 oak, 2 maple, 3 aspen, 4 birch, or -1 bracken), how many leaves and how long, the bush's half
 ## size (across, up), and its colours.
 const KINDS := {
 	"bronze": {"shape": 0.0, "leaves": 320, "leaf": 0.13, "size": Vector2(0.9, 0.7),
 		"colors": {"color_a": Color(0.36, 0.33, 0.13), "color_b": Color(0.6, 0.34, 0.1), "color_dark": Color(0.12, 0.1, 0.05)}},
-	"ember": {"shape": 3.0, "leaves": 280, "leaf": 0.11, "size": Vector2(0.7, 0.85),
+	"ember": {"shape": 2.0, "leaves": 280, "leaf": 0.11, "size": Vector2(0.7, 0.85),
 		"colors": {"color_a": Color(0.88, 0.36, 0.1), "color_b": Color(0.62, 0.15, 0.06), "color_dark": Color(0.2, 0.06, 0.03)}},
-	"bracken": {"shape": 2.0, "leaves": 16, "leaf": 0.95, "size": Vector2(0.6, 0.5),
+	"bracken": {"shape": -1.0, "leaves": 16, "leaf": 0.95, "size": Vector2(0.6, 0.5),
 		"colors": {"color_a": Color(0.74, 0.52, 0.22), "color_b": Color(0.56, 0.33, 0.12), "color_dark": Color(0.2, 0.12, 0.06)}},
 	"shadow": {"shape": 1.0, "leaves": 150, "leaf": 0.24, "size": Vector2(1.0, 0.9),
 		"colors": {"color_a": Color(0.32, 0.29, 0.14), "color_b": Color(0.26, 0.19, 0.09), "color_dark": Color(0.08, 0.07, 0.04)}},
-	"holly": {"shape": 0.0, "leaves": 380, "leaf": 0.08, "size": Vector2(0.6, 0.5),
+	"holly": {"shape": 4.0, "leaves": 380, "leaf": 0.08, "size": Vector2(0.6, 0.5),
 		"colors": {"color_a": Color(0.3, 0.36, 0.14), "color_b": Color(0.46, 0.42, 0.16), "color_dark": Color(0.08, 0.1, 0.04)}},
 }
 
@@ -66,7 +66,7 @@ func build(rng: RandomNumberGenerator, kind: String) -> ArrayMesh:
 			along = (along + Vector3.DOWN * 0.3).normalized()
 			var across := n.cross(along).normalized()
 			var l := length * rng.randf_range(0.75, 1.25)
-			var w := l * (0.75 if info.shape != 1.0 else 0.85)
+			var w := l
 			var foot := p - along * l * 0.5
 			# darker inside and low down, where the light does not reach
 			var c := Color(rng.randf(), out * lerpf(0.45, 1.0, clampf(p.y / top, 0.0, 1.0)), 0.0)

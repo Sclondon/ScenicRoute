@@ -2,3 +2,4 @@
 build/*.import
 media/
 shots/
+.claude/

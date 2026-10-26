@@ -34,8 +34,8 @@ func _ready() -> void:
 
 func _route(at: float, across := 0.0) -> Vector3:
 	var z := 40.0 - at
-	# out past the pond, and round it
-	var x: float = land.path_x(z) - 30.0 + 3.0 * sin(z * 0.05) - 11.0 * exp(-pow((z + 48.0) / 10.0, 2.0)) + across
+	# out of the wood, across the clearing past the pond, into the wood again
+	var x: float = -66.0 + 3.0 * sin(z * 0.05) + across
 	return Vector3(x, land.height(x, z), z)
 
 
@@ -69,9 +69,9 @@ func _make_rabbits() -> void:
 		r.low_poly = true
 		r.sound = false
 		add_child(r)
-		# out on the slope below the patch, where you can see them
-		var z := rng.randf_range(-48.0, -42.0) if i < 2 else rng.randf_range(-18.0, -8.0)
-		var home := Vector2(land.path_x(z) - rng.randf_range(5.0, 14.0), z)
+		# out in the clearing at its near side, where you can see them through the trees
+		var z := rng.randf_range(-62.0, -30.0)
+		var home := Vector2(rng.randf_range(-36.0, -27.0), z)
 		_rabbits.append([r, home, home, rng.randf_range(0.0, 4.0)])
 		r.position = Vector3(home.x, land.height(home.x, home.y), home.y)
 		r.rotation.y = rng.randf() * TAU

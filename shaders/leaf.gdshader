@@ -1,7 +1,7 @@
-// Single leaves, cut from a card: an oak's lobes, a maple's points or a plain ellipse, with a midrib.
+// Single leaves, cut from a card in the shape of a real leaf (leaf_atlas.gd), with its veins.
 // `falling` makes them drift down from the canopy, swinging and tumbling, and start again at the top
 // (each instance's origin is the top of its fall). Otherwise they lie where they were put.
-// INSTANCE_CUSTOM: x shape (0 oak, .5 maple, 1 plain), y hue, z brightness, w seed.
+// INSTANCE_CUSTOM: x which leaf (0..1 over beech, oak, maple, aspen, birch), y hue, z brightness, w seed.
 shader_type spatial;
 render_mode unshaded, cull_disabled;
 
@@ -13,6 +13,7 @@ uniform vec3 rust : source_color = vec3(0.5, 0.2, 0.08);
 uniform vec3 brown : source_color = vec3(0.36, 0.24, 0.13);
 uniform float falling = 0.0;
 uniform float fall_height = 11.0;
+uniform sampler2D leaf_atlas : filter_linear_mipmap, repeat_disable;
 
 varying vec4 custom;
 varying vec3 world_pos;
@@ -50,36 +51,17 @@ void vertex() {
 
 void fragment() {
 	vec2 p = (UV - 0.5) * 2.0;
-	p.y = -p.y;
-	float shape = custom.x;
-	float a = atan(p.x, p.y);
-	float r = length(p * vec2(1.0, 0.8));
-	float edge;
-	if (shape < 0.33) {
-		// oak: a long leaf with rounded lobes, narrow at the stalk
-		float len = length(p * vec2(1.7, 0.95));
-		float lobes = 0.82 + 0.16 * cos(a * 9.0);
-		edge = step(len, lobes) * step(-0.95, p.y);
-		r = len;
-	} else if (shape < 0.66) {
-		// maple: five points
-		float pts = 0.55 + 0.4 * pow(abs(cos(a * 2.5)), 3.0);
-		edge = step(r, pts) * step(-0.9, p.y + abs(p.x) * 0.2);
-	} else {
-		float len = length(p * vec2(2.0, 1.0));
-		edge = step(len, 0.95 - 0.25 * max(-p.y, 0.0));
-		r = len;
-	}
-	// stalk
-	edge = max(edge, step(abs(p.x), 0.04) * step(p.y, -0.6) * step(-1.0, p.y));
-	if (edge < 0.5) {
+	// cut from a real leaf in the sheet (leaf_atlas.gd): beech, oak, maple, aspen or birch
+	float shape = floor(custom.x * 4.99);
+	vec4 cut = texture(leaf_atlas, vec2((shape + UV.x) / 5.0, UV.y));
+	if (cut.a < 0.5) {
 		discard;
 	}
+	float r = length(p);
 	float hue = custom.y;
 	vec3 col = hue < 0.33 ? mix(gold, orange, hue * 3.0) : (hue < 0.66 ? mix(orange, rust, (hue - 0.33) * 3.0) : mix(rust, brown, (hue - 0.66) * 3.0));
-	// midrib and veins a little darker, the edge a little browner
-	float rib = smoothstep(0.05, 0.0, abs(p.x)) * step(p.y, 0.8);
-	col = mix(col, col * 0.7, rib);
+	// the veins a little darker, the edge a little browner
+	col = mix(col, col * 0.62, (1.0 - cut.r) * 1.6);
 	col = mix(col, brown, smoothstep(0.5, 1.0, r) * 0.35);
 	float light = custom.z;
 	vec3 to_cam = normalize(CAMERA_POSITION_WORLD - world_pos);
