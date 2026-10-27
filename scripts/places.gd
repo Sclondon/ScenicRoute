@@ -21,3 +21,15 @@ static func ready_places() -> Array:
 
 static func card_path(id: String) -> String:
 	return "res://cards/%s.jpg" % id
+
+
+## Build a place a step at a time, a frame between steps, so the loading card keeps moving while it is made
+## (the web build has no threads). Call it from the place's `_ready()` with its steps; the place declares
+## `signal progress(done: float)`, `signal built` and `var is_built := false`.
+static func build(place: Node, steps: Array) -> void:
+	for i in steps.size():
+		steps[i].call()
+		place.emit_signal("progress", float(i + 1) / steps.size())
+		await place.get_tree().process_frame
+	place.is_built = true
+	place.emit_signal("built")

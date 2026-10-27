@@ -8,6 +8,13 @@ extends Node3D
 ## The look comes from painting, not lighting: almost every material lights itself by hand off
 ## `SUN_DIR` (the engine's light is there for the fog's glow and the grass), and warm fog does the depth.
 
+const Places := preload("res://scripts/places.gd")
+
+## Made a step at a time (Places.build), so the loading card moves while it is built.
+signal progress(done: float)
+signal built
+var is_built := false
+
 const CornBuilder := preload("res://scripts/amberwood/corn_builder.gd")
 const Wildlife := preload("res://scripts/amberwood/wildlife.gd")
 const FOLIAGE := Woodland.FOLIAGE
@@ -176,19 +183,11 @@ static func ground_point(x: float, z: float) -> Vector3:
 
 func _ready() -> void:
 	rng.seed = 1031
-	_environment()
-	_ground()
-	_water()
-	_props()
-	_trees_and_leaves()
-	_undergrowth()
-	_bushes()
-	_grass()
-	_corn()
-	_ground_leaves()
-	_falling_leaves()
-	_shafts()
-	_glow()
+	Places.build(self, [_environment, _ground, _water, _props, _trees_and_leaves, _undergrowth, _bushes, _grass,
+		_corn, _ground_leaves, _falling_leaves, _shafts, _glow, _wildlife])
+
+
+func _wildlife() -> void:
 	wildlife = Wildlife.new()
 	add_child(wildlife)
 

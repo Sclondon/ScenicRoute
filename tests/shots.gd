@@ -28,7 +28,9 @@ func _shot(name: String) -> void:
 
 
 func _run() -> void:
-	await _wait(3.5)
+	while current_scene == null or not current_scene.is_node_ready() or not current_scene.arrived():
+		await process_frame
+	await _wait(1.5)
 	var cam = current_scene.camera
 	# the real mouse over the window must not turn it
 	cam.set_process_input(false)

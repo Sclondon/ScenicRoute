@@ -13,6 +13,13 @@ extends Node3D
 ## The pieces are built by town.gd (the houses, church and cafe), terrace.gd (where you sit) and
 ## harbour.gd (the sea, boats, breakwater and people), all from the land here (`height`).
 
+const Places := preload("res://scripts/places.gd")
+
+## Made a step at a time (Places.build), so the loading card moves while it is built.
+signal progress(done: float)
+signal built
+var is_built := false
+
 const Geo := preload("res://scripts/caffe_del_porto/geo.gd")
 const Town := preload("res://scripts/caffe_del_porto/town.gd")
 const Terrace := preload("res://scripts/caffe_del_porto/terrace.gd")
@@ -121,16 +128,23 @@ func _ready() -> void:
 	lit_still = _mat(LIT, {"sway": 0.0})
 	lit_tree = _mat(LIT, {"tree": 1.0})
 	house = _mat(HOUSE)
-	_environment()
-	_land()
+	Places.build(self, [_environment, _land, _town, _terrace, _harbour, func(): put(terrace_geo, lit_still, true)])
+
+
+func _town() -> void:
 	Town.new().build(self)
+
+
+func _terrace() -> void:
 	terrace = Terrace.new()
 	add_child(terrace)
 	terrace.build(self)
+
+
+func _harbour() -> void:
 	harbour = Harbour.new()
 	add_child(harbour)
 	harbour.build(self)
-	put(terrace_geo, lit_still, true)
 
 
 func _mat(shader: Shader, params := {}) -> ShaderMaterial:

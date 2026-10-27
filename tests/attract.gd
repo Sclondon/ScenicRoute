@@ -43,7 +43,7 @@ func _run() -> void:
 			if c.get_meta("place").id == stop[0]:
 				card = c
 		main.go(card.get_meta("place"))
-		while main.camera == null:
+		while not main.arrived():
 			await process_frame
 		var cam = main.camera
 		cam.set_process_input(false)

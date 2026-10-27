@@ -28,6 +28,13 @@ var _grid: GridContainer
 var _busy := false
 var _hinted := false
 var _words: Tween
+var loading: Control
+var _load_holder: Control
+var _load_line: Control
+var _load_t := 0.0
+## How far along the line is drawn, and how far the building has got.
+var _shown := 0.0
+var _target := 0.0
 ## A place to open straight into, by id (tests set it before the scene starts).
 static var start_place := ""
 
@@ -37,6 +44,7 @@ func _ready() -> void:
 	_build_words()
 	_build_picker()
 	_build_back()
+	_build_loading()
 	get_viewport().size_changed.connect(_lay_out)
 	_lay_out()
 	# a single place opens straight into it, and a test can ask for one (`start_place`, or --place=<id>)
@@ -184,38 +192,56 @@ func _postcard(p: Dictionary) -> Control:
 func _lay_out() -> void:
 	var size := get_viewport().get_visible_rect().size
 	_grid.columns = 1 if size.x < size.y else 2
+	if _load_holder:
+		var w := minf(size.x - 80.0, 480.0)
+		var h := minf(w * 0.92, size.y * 0.55)
+		_load_holder.custom_minimum_size = Vector2(w, h)
+		for card in _load_holder.get_children():
+			card.size = Vector2(w, h)
+			card.pivot_offset = Vector2(w, h) * 0.5
 
 
 # --- going and coming back ---
 
-## Go to a place (one of Places.PLACES): fade out, build it, fade in on its view.
+## Go to a place (one of Places.PLACES): its postcard comes up while it is built, then lifts away on its view.
 func go(p: Dictionary) -> void:
 	if _busy:
 		return
 	_busy = true
+	_open_loading(p)
 	var tw := create_tween()
-	tw.tween_property(paint, "shader_parameter/fade", 1.0, 0.5)
+	tw.tween_property(loading, "modulate:a", 1.0, 0.35)
 	await tw.finished
 	picker.visible = false
 	_leave_place()
 	place_info = p
 	place = load(p.script).new()
+	if place.has_signal("progress"):
+		place.progress.connect(func(f: float): _target = f)
 	add_child(place)
+	if "is_built" in place and not place.is_built:
+		await place.built
+	_target = 1.0
 	camera = Look.new()
 	place.add_child(camera)
 	camera.setup(place.view_position(), place.get_script().VIEW.look)
 	camera.make_current()
+	# a few frames drawn behind the card (shaders are made the first time they are drawn), and the line run home
+	for i in 3:
+		await get_tree().process_frame
+	while _shown < 0.999:
+		await get_tree().process_frame
 	if place.has_method("make_ambience"):
 		ambience = place.make_ambience()
 		add_child(ambience)
 		ambience.start()
 	back_card.visible = true
 	title.text = p.name
-	# come up out of the dark, name the place, then say how to look about (the first time) and get out of the way
+	# the card lifts away, the place is named, then how to look about (the first time), then out of the way
 	tw = create_tween()
-	tw.tween_property(paint, "shader_parameter/fade", 0.0, 1.6)
+	tw.tween_property(loading, "modulate:a", 0.0, 0.9)
 	# free to leave once it is in view; the name comes and goes on its own
-	tw.tween_callback(func(): _busy = false)
+	tw.tween_callback(_loaded)
 	tw.tween_property(title, "modulate:a", 1.0, 1.0)
 	if not _hinted:
 		tw.parallel().tween_property(hint, "modulate:a", 1.0, 1.0)
@@ -277,3 +303,86 @@ func _build_back() -> void:
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 			back())
 	layer.add_child(back_card)
+
+
+# --- the loading card: the place's postcard, and a line running from one station to the next as it is built ---
+
+func _build_loading() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 4
+	add_child(layer)
+	loading = ColorRect.new()
+	loading.color = Color(0.09, 0.06, 0.04)
+	loading.set_anchors_preset(Control.PRESET_FULL_RECT)
+	loading.visible = false
+	layer.add_child(loading)
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_FULL_RECT)
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 26)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loading.add_child(column)
+	column.add_child(_label("Next stop", ITALIC, 26, Color(CREAM, 0.75)))
+	_load_holder = Control.new()
+	_load_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_load_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_load_holder)
+	_load_line = Control.new()
+	_load_line.custom_minimum_size = Vector2(0, 40)
+	_load_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_load_line.draw.connect(_draw_line)
+	column.add_child(_load_line)
+
+
+func _open_loading(p: Dictionary) -> void:
+	for c in _load_holder.get_children():
+		c.queue_free()
+	var card := _postcard(p)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_load_holder.add_child(card)
+	_shown = 0.0
+	_target = 0.0
+	loading.modulate.a = 0.0
+	loading.visible = true
+	_lay_out()
+
+
+func _loaded() -> void:
+	loading.visible = false
+	_busy = false
+
+
+func _draw_line() -> void:
+	var w := minf(_load_line.size.x - 80.0, 420.0)
+	var a := Vector2((_load_line.size.x - w) * 0.5, _load_line.size.y * 0.5)
+	var b := a + Vector2(w, 0)
+	var x := 0.0
+	while x < w:
+		_load_line.draw_line(a + Vector2(x, 0), a + Vector2(minf(x + 8.0, w), 0), Color(CREAM, 0.25), 2.0)
+		x += 16.0
+	var head := a.lerp(b, _shown)
+	_load_line.draw_line(a, head, GOLD, 3.0)
+	_load_line.draw_circle(a, 6.0, GOLD)
+	_load_line.draw_circle(b, 6.0, Color(CREAM, 0.35))
+	_load_line.draw_circle(head, 9.0, Color(GOLD, 0.3))
+	_load_line.draw_circle(head, 5.0, CREAM)
+
+
+func _process(delta: float) -> void:
+	if not loading.visible:
+		return
+	_load_t += delta
+	# building steps can take a while each: ease the line along rather than jump, and never back
+	_shown = minf(move_toward(_shown, _target, delta * 1.2), 1.0)
+	for card in _load_holder.get_children():
+		# held to the holder's size (a new card grows tall until its words have wrapped)
+		card.size = _load_holder.custom_minimum_size
+		card.pivot_offset = card.size * 0.5
+		card.rotation = sin(_load_t * 1.4) * 0.02
+		card.position.y = sin(_load_t * 2.1) * 4.0
+	_load_line.queue_redraw()
+
+
+## There, and the loading card gone (for the tests).
+func arrived() -> bool:
+	return camera != null and not loading.visible

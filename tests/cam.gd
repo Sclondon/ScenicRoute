@@ -11,7 +11,9 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var a := Array(OS.get_cmdline_user_args()).filter(func(s: String) -> bool: return not s.begins_with("--"))
-	await create_timer(float(a[6]) if a.size() > 6 else 3.5).timeout
+	while current_scene == null or not current_scene.is_node_ready() or not current_scene.arrived():
+		await process_frame
+	await create_timer(float(a[6]) if a.size() > 6 else 1.5).timeout
 	var cam = current_scene.camera
 	cam.set_process(false)
 	cam.set_process_input(false)

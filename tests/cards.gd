@@ -17,7 +17,7 @@ func _initialize() -> void:
 
 
 func _run(want: String) -> void:
-	while current_scene == null or not current_scene.is_node_ready() or current_scene.camera == null:
+	while current_scene == null or not current_scene.is_node_ready() or not current_scene.arrived():
 		await process_frame
 	var main = current_scene
 	# no name over it, and the light settled

@@ -52,8 +52,11 @@ func _drag(from: Vector2, by: Vector2, index := 0, with_press := true) -> void:
 
 
 func _run() -> void:
-	await _wait(0.8)
+	await _wait(0.5)
 	var main = current_scene
+	_check(main.loading.visible, "the postcard shows while the place is built")
+	while not main.arrived():
+		await process_frame
 	var cam = main.camera
 	_check(main.find_children("*", "BaseButton", true, false).is_empty(), "there are no buttons")
 	var at: Vector3 = cam.position

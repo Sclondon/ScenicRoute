@@ -15,6 +15,13 @@ extends Node3D
 ## haze), and things far off fade into the sky's own colour that way. GameCommon's parts are used where one fits
 ## (see README): the sand of the beach, the people, the birds, the hibiscus bushes, the torches' flames.
 
+const Places := preload("res://scripts/places.gd")
+
+## Made a step at a time (Places.build), so the loading card moves while it is built.
+signal progress(done: float)
+signal built
+var is_built := false
+
 const MeshKit := preload("res://scripts/plumeria/mesh_kit.gd")
 const PalmBuilder := preload("res://scripts/plumeria/palm_builder.gd")
 const Sound := preload("res://scripts/plumeria/sound.gd")
@@ -113,21 +120,8 @@ static func mountain(x: float, z: float) -> float:
 
 func _ready() -> void:
 	rng.seed = 808
-	_environment()
-	_land()
-	_sand()
-	_sea()
-	_deck()
-	_bar()
-	_front()
-	_string_lights()
-	_torches()
-	_beach()
-	_planters()
-	_palms()
-	_distant()
-	_people()
-	_commit()
+	Places.build(self, [_environment, _land, _sand, _sea, _deck, _bar, _front, _string_lights, _torches, _beach,
+		_planters, _palms, _distant, _people, _commit])
 
 
 func _mat(shader: Shader, params := {}) -> ShaderMaterial:
@@ -1103,11 +1097,14 @@ func _birds() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	if boy == null:
+	if boy == null or not is_built:
 		return
 	# the boy runs down after the wash as it draws back, and up away from it as it comes in
 	# (on the surf's own clock, as the shaders have it: see common.gdshaderinc's swash)
-	var t := fmod(Time.get_ticks_msec() / 1000.0, 3600.0) - float(surf_materials[0].get_shader_parameter(&"wave_t0"))
+	var t0 = surf_materials[0].get_shader_parameter(&"wave_t0")
+	if t0 == null:
+		return  # the surf's clock starts with its sound
+	var t := fmod(Time.get_ticks_msec() / 1000.0, 3600.0) - float(t0)
 	var s := fposmod(t - 0.45 * 8.0, 8.0) / 8.0
 	var wander := -4.0 + sin(t * 0.05) * 9.0
 	var down := s > 0.45 and s < 0.95

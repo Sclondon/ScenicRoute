@@ -11,7 +11,7 @@ func _initialize() -> void:
 
 
 func _run(t0: int) -> void:
-	while current_scene == null or not current_scene.is_node_ready() or current_scene.camera == null:
+	while current_scene == null or not current_scene.is_node_ready() or not current_scene.arrived():
 		await process_frame
 	print("built in %d ms (with the fade in)" % (Time.get_ticks_msec() - t0))
 	await create_timer(3.0).timeout

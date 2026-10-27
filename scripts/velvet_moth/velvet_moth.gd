@@ -10,6 +10,13 @@ extends Node3D
 ##
 ## Built from code and seeded, the same every visit.
 
+const Places := preload("res://scripts/places.gd")
+
+## Made a step at a time (Places.build), so the loading card moves while it is built.
+signal progress(done: float)
+signal built
+var is_built := false
+
 const Geo := preload("res://scripts/velvet_moth/geo.gd")
 const Figures := preload("res://scripts/velvet_moth/figures.gd")
 const ClubSound := preload("res://scripts/velvet_moth/club_sound.gd")
@@ -64,19 +71,8 @@ static func view_position() -> Vector3:
 
 func _ready() -> void:
 	rng.seed = 1931
-	_environment()
-	_hall()
-	_mezzanine()
-	_stage()
-	_bar()
-	_booths()
-	_moths()
-	_crowd()
-	_beams()
-	_ball()
-	_signs()
-	_bar_moths()
-	_commit()
+	Places.build(self, [_environment, _hall, _mezzanine, _stage, _bar, _booths, _moths, _crowd, _beams, _ball,
+		_signs, _bar_moths, _commit])
 
 
 func _process(delta: float) -> void:
