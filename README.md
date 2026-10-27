@@ -1,4 +1,6 @@
-# Scenic Route
+# Lounge
+
+(Was Scenic Route; the repo and folder keep that name so the Pages address stays the same.)
 
 Scenic places to stand in and look around. It opens on a spread of postcards (`scripts/places.gd`), one for each
 place; tap one and you are there. No goals, no score, no walking: drag to look about. The only thing on screen is a

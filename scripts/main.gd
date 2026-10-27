@@ -1,5 +1,5 @@
 extends Node
-## Scenic Route: scenic places to stand in and look around. It opens on a spread of postcards, one for each
+## Lounge (was Scenic Route): scenic places to stand in and look around. It opens on a spread of postcards, one for each
 ## place (scripts/places.gd); tap one and you are there, and drag to look about. The only thing on screen
 ## while you are there is a little postcard in the corner, to go back to the postcards.
 
@@ -132,7 +132,7 @@ func _build_picker() -> void:
 	column.offset_bottom = -24
 	column.add_theme_constant_override("separation", 18)
 	picker.add_child(column)
-	column.add_child(_label("S C E N I C   R O U T E", SERIF, 30, GOLD))
+	column.add_child(_label("L O U N G E", SERIF, 30, GOLD))
 	column.add_child(_label("Where to?", ITALIC, 24, Color(CREAM, 0.75)))
 	_grid = GridContainer.new()
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
