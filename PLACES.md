@@ -15,6 +15,9 @@ from code, seeded, so it is the same every visit. `main.gd` loads it, adds it, a
   positive turns left; pitch positive looks up. (Other keys are the place's own business.)
 - `static func view_position() -> Vector3`: where your eyes are (about 1.6 m above the floor, or sitting:
   1.2 m).
+- built a step at a time: `_ready()` calls `Places.build(self, [steps...])`, and the script declares
+  `signal progress(done: float)`, `signal built` and `var is_built := false`. Main shows the place's postcard (the
+  loading card) until it is built; anything in `_process` must cope with a place half made (check `is_built`).
 - its own `WorldEnvironment` (and any lights). No camera: main adds it (fov 62, near 0.08, far 700).
 - optionally `func make_ambience() -> Node`: a node with `start()` that plays the place's sound (main adds it
   and frees it when you leave). Sound made in code, as `scripts/ambience.gd` does (baked `AudioStreamWAV`,
